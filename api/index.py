@@ -10,6 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from workflow import builder
 from langgraph.checkpoint.memory import MemorySaver
+from agents.creative_agent import generate_content as run_creative_agent
 
 # Ensure API Key is available
 if not os.environ.get("GOOGLE_API_KEY"):
@@ -83,29 +84,20 @@ async def analyze_content(req: AnalyzeRequest):
 @app.post("/api/generate")
 async def generate_content(req: GenerateRequest):
     """
-    Resumes graph after receiving the manually edited fact_sheet from the frontend.
+    Stateless endpoint: Bypasses the LangGraph state machine since Vercel Lambda 
+    instances lose in-memory threads between requests.
     """
-    config = {"configurable": {"thread_id": req.thread_id}}
-    
-    # Check if thread exists
-    snapshot = graph.get_state(config)
-    if not snapshot.next:
-        raise HTTPException(status_code=400, detail="Invalid thread_id or pipeline already finished.")
+    if not req.fact_sheet.strip():
+        raise HTTPException(status_code=400, detail="Empty Fact-Sheet provided.")
         
     try:
-        # Inject the edited state into the graph just like CLI
-        graph.update_state(config, {"fact_sheet": req.fact_sheet, "is_verified": True}, as_node="human_review")
-        
-        # Resume the generator
-        for event in graph.stream(None, config):
-            pass
-            
-        final_state = graph.get_state(config).values
+        # Directly invoke the agent function
+        result = run_creative_agent(req.fact_sheet)
         
         return {
-            "blog_post": final_state.get("blog_post", ""),
-            "social_thread": final_state.get("social_thread", ""),
-            "email_teaser": final_state.get("email_teaser", "")
+            "blog_post": result.get("blog_post", ""),
+            "social_thread": result.get("social_thread", ""),
+            "email_teaser": result.get("email_teaser", "")
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
