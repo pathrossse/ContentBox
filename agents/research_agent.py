@@ -19,7 +19,7 @@ def analyze_content(content: str) -> Dict[str, Any]:
     Uses Gemini 1.5 Pro to process the source and return a structured Fact-Sheet and Ambiguity Flags.
     """
     llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
+        model="gemini-3-flash-preview",
         temperature=0.0, # Low temperature for objective extraction
         api_key=os.environ.get("GOOGLE_API_KEY", "").strip()
     )

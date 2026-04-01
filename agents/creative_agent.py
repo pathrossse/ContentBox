@@ -15,7 +15,7 @@ def generate_content(fact_sheet: str) -> Dict[str, Any]:
     Uses Gemini 1.5 Flash to quickly generate the blog post, social thread, and email teaser.
     """
     llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
+        model="gemini-3-flash-preview",
         temperature=0.7, # Higher temperature for creative copy
         api_key=os.environ.get("GOOGLE_API_KEY", "").strip()
     )
