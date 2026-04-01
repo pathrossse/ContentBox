@@ -21,7 +21,7 @@ function App() {
     if (!sourceInput.trim()) return;
     setAppState('analyzing');
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/analyze', {
+      const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source: sourceInput })
@@ -42,7 +42,7 @@ function App() {
   const handleGenerate = async () => {
     setAppState('generating');
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/generate', {
+      const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ thread_id: threadId, fact_sheet: factSheet })
