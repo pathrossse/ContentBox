@@ -8,14 +8,14 @@
       }
     },
     {
-      "src": "api/index.py",
+      "src": "index.py",
       "use": "@vercel/python"
     }
   ],
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/index.py"
+      "destination": "/index.py"
     },
     {
       "source": "/(.*)",
