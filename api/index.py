@@ -5,6 +5,9 @@ import uuid
 import sys
 import os
 
+# Append the root folder so we can import workflow stuff (required for /api serverless)
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from workflow import builder
 from langgraph.checkpoint.memory import MemorySaver
 
