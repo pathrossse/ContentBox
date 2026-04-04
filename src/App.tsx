@@ -89,8 +89,8 @@ function App() {
           disabled={appState !== 'idle' || !sourceInput.trim()}
         >
           {appState === 'analyzing' ? (
-            <span className="pulse" style={{ display: 'flex', alignItems: 'center', gap: '8px'}}>
-              <Loader2 size={18} className="spin" /> Scraping...
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px'}}>
+              <Loader2 size={18} className="spin" /> Analyzing...
             </span>
           ) : 'Analyze'}
         </button>
@@ -124,20 +124,26 @@ function App() {
             </div>
           </div>
           
-          {appState === 'verifying' && (
+          {(appState === 'verifying' || appState === 'generating') && (
             <div className="action-row">
-              <button className="btn" onClick={handleGenerate}>
-                <CheckCircle size={18} style={{ display: 'inline', marginRight: 8, verticalAlign: 'middle' }}/> 
-                Confirm & Generate
+              <button 
+                className="btn" 
+                onClick={handleGenerate}
+                disabled={appState === 'generating'}
+              >
+                {appState === 'generating' ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px'}}>
+                    <Loader2 size={18} className="spin" /> Agent 2 is drafting...
+                  </span>
+                ) : (
+                  <>
+                    <CheckCircle size={18} style={{ display: 'inline', marginRight: 8, verticalAlign: 'middle' }}/> 
+                    Confirm & Generate
+                  </>
+                )}
               </button>
             </div>
           )}
-          {appState === 'generating' && (
-            <div className="action-row">
-              <span className="pulse"><Loader2 size={18} className="spin" /> Agent 2 is drafting content...</span>
-            </div>
-          )}
-        </section>
       )}
 
       {/* OUTPUT GALLERY */}
