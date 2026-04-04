@@ -144,6 +144,7 @@ function App() {
               </button>
             </div>
           )}
+        </section>
       )}
 
       {/* OUTPUT GALLERY */}
