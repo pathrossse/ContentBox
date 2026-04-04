@@ -136,6 +136,16 @@ body {
   100% { opacity: 0.5; }
 }
 
+/* Spin animation for Loaders */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* Verification Gate */
 .gate-container {
   display: grid;
