@@ -262,3 +262,35 @@ body {
   white-space: pre-wrap;
   color: var(--text-secondary);
 }
+
+/* Markdown Rendering Component Styling */
+.markdown-rendered h1, .markdown-rendered h2, .markdown-rendered h3 {
+  color: var(--text-primary);
+  margin-top: 1.25em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.markdown-rendered h1 { font-size: 1.5rem; }
+.markdown-rendered h2 { font-size: 1.25rem; }
+.markdown-rendered h3 { font-size: 1.1rem; }
+
+.markdown-rendered p { 
+  margin-bottom: 1em; 
+  line-height: 1.6;
+}
+
+.markdown-rendered ul, .markdown-rendered ol { 
+  padding-left: 1.5em; 
+  margin-bottom: 1em; 
+}
+
+.markdown-rendered li { 
+  margin-bottom: 0.4em; 
+}
+
+.markdown-rendered strong { 
+  color: #fff; 
+  font-weight: 700; 
+}

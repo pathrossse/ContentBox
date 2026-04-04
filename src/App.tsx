@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Bot, CheckCircle, FileText, AlertTriangle, Copy, Loader2 } from 'lucide-react';
+import { Bot, CheckCircle, FileText, AlertTriangle, Copy, Loader2, Edit3, Eye } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 type GUIState = 'idle' | 'analyzing' | 'verifying' | 'generating' | 'finished';
 
@@ -14,6 +15,7 @@ function App() {
   const [sourceInput, setSourceInput] = useState('');
   const [threadId, setThreadId] = useState('');
   const [factSheet, setFactSheet] = useState('');
+  const [previewMode, setPreviewMode] = useState(false);
   const [ambiguityFlags, setAmbiguityFlags] = useState<string[]>([]);
   const [results, setResults] = useState<GenerationData | null>(null);
 
@@ -101,13 +103,27 @@ function App() {
         <section className="fade-in">
           <div className="gate-container">
             <div className="glass gate-panel">
-              <h2 className="gate-title"><FileText size={20}/> Fact-Sheet Review</h2>
-              <textarea 
-                className="md-editor"
-                value={factSheet}
-                onChange={(e) => setFactSheet(e.target.value)}
-                disabled={appState !== 'verifying'}
-              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h2 className="gate-title" style={{ margin: 0 }}><FileText size={20}/> Fact-Sheet Review</h2>
+                {appState === 'verifying' && (
+                  <button onClick={() => setPreviewMode(!previewMode)} className="btn" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {previewMode ? <><Edit3 size={14}/> Edit Markdown</> : <><Eye size={14}/> Preview HTML</>}
+                  </button>
+                )}
+              </div>
+              
+              {previewMode || appState !== 'verifying' ? (
+                <div className="md-editor markdown-rendered" style={{ overflowY: 'auto' }}>
+                  <ReactMarkdown>{factSheet || "No content generated yet."}</ReactMarkdown>
+                </div>
+              ) : (
+                <textarea 
+                  className="md-editor"
+                  value={factSheet}
+                  onChange={(e) => setFactSheet(e.target.value)}
+                  placeholder="Review generated facts..."
+                />
+              )}
             </div>
             
             <div className="glass gate-panel warnings">
@@ -162,8 +178,8 @@ function App() {
                   <Copy size={18} />
                 </button>
               </div>
-              <div className="bento-content">
-                {item.content}
+              <div className="bento-content markdown-rendered">
+                <ReactMarkdown>{item.content}</ReactMarkdown>
               </div>
             </div>
           ))}
