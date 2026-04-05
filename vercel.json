@@ -1,20 +1,8 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    },
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python"
-    }
-  ],
   "functions": {
-    "api/index.py": {
+    "api/**/*.py": {
+      "runtime": "@vercel/python",
       "maxDuration": 60
     }
   },
