@@ -86,13 +86,13 @@ function App() {
           disabled={appState !== 'idle'}
         />
         <button 
-          className="btn" 
+          className="bg-[#007AFF] hover:bg-[#005bb5] disabled:hover:bg-[#007AFF] disabled:opacity-50 active:scale-[0.98] text-white py-3 px-8 rounded-lg font-semibold transition-all flex items-center justify-center cursor-pointer disabled:cursor-not-allowed" 
           onClick={handleAnalyze}
           disabled={appState !== 'idle' || !sourceInput.trim()}
         >
           {appState === 'analyzing' ? (
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px'}}>
-              <Loader2 size={18} className="spin" /> Analyzing...
+            <span className="flex items-center gap-2">
+              <Loader2 size={18} className="animate-spin" /> Analyzing...
             </span>
           ) : 'Analyze'}
         </button>
@@ -104,9 +104,9 @@ function App() {
           <div className="gate-container">
             <div className="glass gate-panel">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h2 className="gate-title" style={{ margin: 0 }}><FileText size={20}/> Fact-Sheet Review</h2>
+                <h2 className="text-xl font-semibold text-[#ededed] flex items-center gap-2 m-0"><FileText size={20}/> Fact-Sheet Review</h2>
                 {appState === 'verifying' && (
-                  <button onClick={() => setPreviewMode(!previewMode)} className="btn" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button onClick={() => setPreviewMode(!previewMode)} className="bg-[#007AFF] hover:bg-[#005bb5] active:scale-[0.98] text-white py-1.5 px-3 rounded text-sm font-medium transition-all flex items-center gap-1.5 cursor-pointer">
                     {previewMode ? <><Edit3 size={14}/> Edit Markdown</> : <><Eye size={14}/> Preview HTML</>}
                   </button>
                 )}
@@ -143,19 +143,19 @@ function App() {
           {(appState === 'verifying' || appState === 'generating') && (
             <div className="action-row">
               <button 
-                className="btn" 
+                className="bg-[#007AFF] hover:bg-[#005bb5] disabled:opacity-50 disabled:hover:bg-[#007AFF] active:scale-[0.98] text-white py-3 px-6 rounded-lg font-semibold transition-all flex items-center justify-center cursor-pointer disabled:cursor-not-allowed" 
                 onClick={handleGenerate}
                 disabled={appState === 'generating'}
               >
                 {appState === 'generating' ? (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px'}}>
-                    <Loader2 size={18} className="spin" /> Agent 2 is drafting...
+                  <span className="flex items-center gap-2">
+                    <Loader2 size={18} className="animate-spin" /> Agent 2 is drafting...
                   </span>
                 ) : (
-                  <>
-                    <CheckCircle size={18} style={{ display: 'inline', marginRight: 8, verticalAlign: 'middle' }}/> 
+                  <span className="flex items-center gap-2">
+                    <CheckCircle size={18} /> 
                     Confirm & Generate
-                  </>
+                  </span>
                 )}
               </button>
             </div>
