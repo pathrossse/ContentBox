@@ -113,8 +113,10 @@ function App() {
               </div>
               
               {previewMode || appState !== 'verifying' ? (
-                <div className="md-editor markdown-rendered" style={{ overflowY: 'auto' }}>
-                  <ReactMarkdown>{factSheet || "No content generated yet."}</ReactMarkdown>
+                <div className="md-editor markdown-rendered prose prose-invert max-w-none" style={{ overflowY: 'auto' }}>
+                  <ReactMarkdown>
+                    {factSheet ? factSheet.replace(/\\n/g, '\n') : "No content generated yet."}
+                  </ReactMarkdown>
                 </div>
               ) : (
                 <textarea 
@@ -178,8 +180,10 @@ function App() {
                   <Copy size={18} />
                 </button>
               </div>
-              <div className="bento-content markdown-rendered">
-                <ReactMarkdown>{item.content}</ReactMarkdown>
+              <div className="bento-content markdown-rendered prose prose-invert max-w-none">
+                <ReactMarkdown>
+                  {item.content ? item.content.replace(/\\n/g, '\n') : ""}
+                </ReactMarkdown>
               </div>
             </div>
           ))}
