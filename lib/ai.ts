@@ -1,41 +1,46 @@
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-
-export async function runAIService(content: string) {
-  const model = new ChatGoogleGenerativeAI({
-    model: "gemini-1.5-flash",
-    apiKey: process.env.GOOGLE_API_KEY,
-    temperature: 0.3,
-  });
-
+export async function runAIService(content: string): Promise<any> {
   const prompt = `
-    You are the "Master AI Strategist". 
     Analyze the following source material and generate marketing assets.
+    Return a valid JSON object with the following keys:
+    "fact_sheet" (Markdown), "ambiguity_flags" (list), "blog_post" (Markdown), "social_thread" (list of strings), "email_teaser" (Markdown).
     
-    SOURCE MATERIAL:
+    SOURCE:
     ${content}
     
-    TASK:
-    1. Create a "fact_sheet" in Markdown.
-    2. Identify "ambiguity_flags" (list of vague claims).
-    3. Draft a "blog_post" (500 words).
-    4. Draft a "social_thread" (5 posts).
-    5. Draft an "email_teaser" (1 paragraph).
-
-    RESPONSE FORMAT:
-    You must return a valid JSON object with the following keys:
-    "fact_sheet", "ambiguity_flags", "blog_post", "social_thread", "email_teaser".
-    Ensure the JSON is strictly valid and contains no extra text.
+    CRITICAL: Return ONLY raw JSON. No conversational text. No markdown blocks.
   `;
 
-  const res = await model.invoke(prompt);
-  
-  // Clean potential Markdown JSON blocks from response
-  let cleanContent = res.content.toString();
-  if (cleanContent.includes("```json")) {
-    cleanContent = cleanContent.split("```json")[1].split("```")[0].trim();
-  } else if (cleanContent.includes("```")) {
-    cleanContent = cleanContent.split("```")[1].split("```")[0].trim();
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': process.env.GOOGLE_API_KEY!,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2048,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`AI request failed: ${res.status} - ${errorText}`);
   }
 
-  return JSON.parse(cleanContent);
+  const data = await res.json();
+  const textContent = data.content?.[0]?.text ?? '';
+  
+  try {
+    // Attempt to parse JSON directly or extract it from blocks
+    let jsonMatch = textContent.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    return JSON.parse(textContent);
+  } catch (e) {
+    console.error('JSON Parse Error:', textContent);
+    throw new Error('AI failed to produce a valid JSON report. Please try again.');
+  }
 }

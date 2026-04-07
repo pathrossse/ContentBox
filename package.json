@@ -10,7 +10,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@langchain/google-genai": "^2.1.26",
     "cheerio": "^1.2.0",
     "lucide-react": "^0.292.0",
     "next": "^16.2.2",
