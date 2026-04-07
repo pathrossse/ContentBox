@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { scrapeUrl } from '../../../lib/scraper';
-import { runAIService } from '../../../lib/ai';
+import { scrapeUrl } from '@/lib/scraper';
+import { runAIService } from '@/lib/ai';
 
 export const maxDuration = 60; // Max timeout for Vercel Hobby is 10s, but Next.js internal limit
 
