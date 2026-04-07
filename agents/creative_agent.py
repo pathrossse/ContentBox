@@ -2,25 +2,13 @@ import os
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 from typing import Dict, Any
+from utilities.llm_engine import invoke_structured_llm
 
 class CreativeOutput(BaseModel):
     """Output structure for the Creative Agent."""
     blog_post: str = Field(description="A 500-word professional blog post based on the Fact-Sheet.")
     social_thread: str = Field(description="A punchy and engaging 5-post social media thread based on the Fact-Sheet.")
     email_teaser: str = Field(description="A 1-paragraph email teaser summarizing the core value proposition.")
-
-def generate_content(fact_sheet: str) -> Dict[str, Any]:
-    """
-    Agent 2 (The Creative Voice): Generates multi-channel marketing content.
-    Uses Gemini 1.5 Flash to quickly generate the blog post, social thread, and email teaser.
-    """
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-3-flash-preview",
-        temperature=0.7, # Higher temperature for creative copy
-        api_key=os.environ.get("GOOGLE_API_KEY", "").strip()
-    )
-    
-    structured_llm = llm.with_structured_output(CreativeOutput)
 
     prompt = f"""
     You are the "Creative Voice", a world-class Multi-Channel Copywriter.
@@ -40,7 +28,15 @@ def generate_content(fact_sheet: str) -> Dict[str, Any]:
     --------------------
     """
 
-    result: CreativeOutput = structured_llm.invoke(prompt)
+    llm_params = {
+        "prompt": prompt,
+        "schema": CreativeOutput,
+        "temperature": 0.7,
+        "primary_model": "gemini-3-flash-preview",
+        "fallback_model": "gemini-1.5-flash"
+    }
+
+    result: CreativeOutput = invoke_structured_llm(**llm_params)
 
     return {
         "blog_post": result.blog_post,

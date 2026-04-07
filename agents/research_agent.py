@@ -2,6 +2,7 @@ import os
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any
+from utilities.llm_engine import invoke_structured_llm
 
 class ResearchOutput(BaseModel):
     """Output structure for the Research Agent."""
@@ -12,20 +13,6 @@ class ResearchOutput(BaseModel):
         description="A list of specific ambiguous or unsupported claims found in the source text. Empty if none.",
         default_factory=list
     )
-
-def analyze_content(content: str) -> Dict[str, Any]:
-    """
-    Agent 1 (Analytical Brain): Extracts objective data from the text.
-    Uses Gemini 1.5 Pro to process the source and return a structured Fact-Sheet and Ambiguity Flags.
-    """
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-3-flash-preview",
-        temperature=0.0, # Low temperature for objective extraction
-        api_key=os.environ.get("GOOGLE_API_KEY", "").strip()
-    )
-    
-    # We use structured output to ensure we get both the markdown and the flags separated.
-    structured_llm = llm.with_structured_output(ResearchOutput)
 
     prompt = f"""
     You are the "Analytical Brain", a highly-skilled Technical Researcher & Auditor.
@@ -45,7 +32,15 @@ def analyze_content(content: str) -> Dict[str, Any]:
     --------------------
     """
 
-    result: ResearchOutput = structured_llm.invoke(prompt)
+    llm_params = {
+        "prompt": prompt,
+        "schema": ResearchOutput,
+        "temperature": 0.0,
+        "primary_model": "gemini-3-flash-preview",
+        "fallback_model": "gemini-1.5-flash"
+    }
+
+    result: ResearchOutput = invoke_structured_llm(**llm_params)
 
     return {
         "fact_sheet": result.fact_sheet,
