@@ -179,13 +179,13 @@ function App() {
             <div className="bento-card glass" key={id}>
               <div className="bento-header">
                 <span className="bento-title">{item.title}</span>
-                <button className="copy-btn" onClick={() => copyToClipboard(item.content, id)}>
+                <button className="copy-btn transition-all duration-200" onClick={() => copyToClipboard(item.content, id)}>
                   {copiedId === id ? (
-                    <span className="flex items-center gap-1 text-green-400 text-sm font-medium">
+                    <span className="flex items-center gap-1 text-green-500 text-sm font-medium animate-in fade-in zoom-in duration-300">
                       <CheckCircle size={16} /> Copied!
                     </span>
                   ) : (
-                    <Copy size={18} />
+                    <Copy size={18} className="transition-all hover:scale-110" />
                   )}
                 </button>
               </div>
