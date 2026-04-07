@@ -16,6 +16,7 @@ function App() {
   const [threadId, setThreadId] = useState('');
   const [factSheet, setFactSheet] = useState('');
   const [previewMode, setPreviewMode] = useState(false);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
   const [ambiguityFlags, setAmbiguityFlags] = useState<string[]>([]);
   const [results, setResults] = useState<GenerationData | null>(null);
 
@@ -60,8 +61,10 @@ function App() {
     }
   };
 
-  const copyToClipboard = (text: string) => {
+  const copyToClipboard = (text: string, id: number) => {
     navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   return (
@@ -176,8 +179,14 @@ function App() {
             <div className="bento-card glass" key={id}>
               <div className="bento-header">
                 <span className="bento-title">{item.title}</span>
-                <button className="copy-btn" onClick={() => copyToClipboard(item.content)}>
-                  <Copy size={18} />
+                <button className="copy-btn" onClick={() => copyToClipboard(item.content, id)}>
+                  {copiedId === id ? (
+                    <span className="flex items-center gap-1 text-green-400 text-sm font-medium">
+                      <CheckCircle size={16} /> Copied!
+                    </span>
+                  ) : (
+                    <Copy size={18} />
+                  )}
                 </button>
               </div>
               <div className="bento-content markdown-rendered prose prose-invert max-w-none">
