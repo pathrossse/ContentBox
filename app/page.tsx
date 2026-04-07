@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from 'react';
 import { Bot, CheckCircle, FileText, AlertTriangle, Copy, Loader2, Edit3, Eye } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -10,7 +12,7 @@ interface GenerationData {
   email_teaser: string;
 }
 
-function App() {
+export default function Home() {
   const [appState, setAppState] = useState<GUIState>('idle');
   const [sourceInput, setSourceInput] = useState('');
   const [threadId, setThreadId] = useState('');
@@ -201,5 +203,3 @@ function App() {
     </div>
   );
 }
-
-export default App;
