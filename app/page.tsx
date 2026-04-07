@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Bot, CheckCircle, FileText, AlertTriangle, Copy, Loader2, Edit3, Eye } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
-type GUIState = 'idle' | 'analyzing' | 'verifying' | 'generating' | 'finished';
+type GUIState = 'idle' | 'analyzing' | 'finished';
 
 interface GenerationData {
   blog_post: string;
@@ -15,7 +15,6 @@ interface GenerationData {
 export default function Home() {
   const [appState, setAppState] = useState<GUIState>('idle');
   const [sourceInput, setSourceInput] = useState('');
-  const [threadId, setThreadId] = useState('');
   const [factSheet, setFactSheet] = useState('');
   const [previewMode, setPreviewMode] = useState(false);
   const [copiedId, setCopiedId] = useState<number | null>(null);
@@ -32,34 +31,22 @@ export default function Home() {
         body: JSON.stringify({ source: sourceInput })
       });
       const data = await res.json();
+      
       if (!res.ok) throw new Error(data.detail || 'Analysis failed');
       
-      setThreadId(data.thread_id);
+      // Update all stats in one pass
       setFactSheet(data.fact_sheet);
       setAmbiguityFlags(data.ambiguity_flags || []);
-      setAppState('verifying');
-    } catch (err: any) {
-      alert(err.message);
-      setAppState('idle');
-    }
-  };
-
-  const handleGenerate = async () => {
-    setAppState('generating');
-    try {
-      const res = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ thread_id: threadId, fact_sheet: factSheet })
+      setResults({
+        blog_post: data.blog_post,
+        social_thread: data.social_thread,
+        email_teaser: data.email_teaser
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Generation failed');
       
-      setResults(data);
       setAppState('finished');
     } catch (err: any) {
       alert(err.message);
-      setAppState('verifying');
+      setAppState('idle');
     }
   };
 
@@ -103,21 +90,19 @@ export default function Home() {
         </button>
       </section>
 
-      {/* VERIFICATION GATE */}
-      {(appState === 'verifying' || appState === 'generating' || appState === 'finished') && (
+      {/* VERIFICATION GATE & OUTPUT (MERGED) */}
+      {appState === 'finished' && (
         <section className="fade-in">
           <div className="gate-container">
             <div className="glass gate-panel">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <h2 className="text-xl font-semibold text-[#ededed] flex items-center gap-2 m-0"><FileText size={20}/> Fact-Sheet Review</h2>
-                {appState === 'verifying' && (
-                  <button onClick={() => setPreviewMode(!previewMode)} className="bg-[#007AFF] hover:bg-[#005bb5] active:scale-[0.98] text-white py-1.5 px-3 rounded text-sm font-medium transition-all flex items-center gap-1.5 cursor-pointer">
-                    {previewMode ? <><Edit3 size={14}/> Edit Markdown</> : <><Eye size={14}/> Preview HTML</>}
-                  </button>
-                )}
+                <button onClick={() => setPreviewMode(!previewMode)} className="bg-[#007AFF] hover:bg-[#005bb5] active:scale-[0.98] text-white py-1.5 px-3 rounded text-sm font-medium transition-all flex items-center gap-1.5 cursor-pointer">
+                  {previewMode ? <><Edit3 size={14}/> Edit Markdown</> : <><Eye size={14}/> Preview HTML</>}
+                </button>
               </div>
               
-              {previewMode || appState !== 'verifying' ? (
+              {previewMode ? (
                 <div className="md-editor markdown-rendered prose prose-invert max-w-none" style={{ overflowY: 'auto' }}>
                   <ReactMarkdown>
                     {factSheet ? factSheet.replace(/\\n/g, '\n') : "No content generated yet."}
@@ -146,58 +131,46 @@ export default function Home() {
               </ul>
             </div>
           </div>
-          
-          {(appState === 'verifying' || appState === 'generating') && (
-            <div className="action-row">
-              <button 
-                className="bg-[#007AFF] hover:bg-[#005bb5] disabled:opacity-50 disabled:hover:bg-[#007AFF] active:scale-[0.98] text-white py-3 px-6 rounded-lg font-semibold transition-all flex items-center justify-center cursor-pointer disabled:cursor-not-allowed" 
-                onClick={handleGenerate}
-                disabled={appState === 'generating'}
-              >
-                {appState === 'generating' ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 size={18} className="animate-spin" /> Agent 2 is drafting...
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-2">
-                    <CheckCircle size={18} /> 
-                    Confirm & Generate
-                  </span>
-                )}
-              </button>
-            </div>
-          )}
-        </section>
-      )}
 
-      {/* OUTPUT GALLERY */}
-      {appState === 'finished' && results && (
-        <section className="gallery-grid fade-in">
-          {[
-            { title: 'Blog Post', content: results.blog_post },
-            { title: 'Social Media Thread', content: results.social_thread },
-            { title: 'Email Teaser', content: results.email_teaser }
-          ].map((item, id) => (
-            <div className="bento-card glass" key={id}>
-              <div className="bento-header">
-                <span className="bento-title">{item.title}</span>
-                <button className="copy-btn transition-all duration-200" onClick={() => copyToClipboard(item.content, id)}>
-                  {copiedId === id ? (
-                    <span className="flex items-center gap-1 text-green-500 text-sm font-medium animate-in fade-in zoom-in duration-300">
-                      <CheckCircle size={16} /> Copied!
-                    </span>
-                  ) : (
-                    <Copy size={18} className="transition-all hover:scale-110" />
-                  )}
-                </button>
-              </div>
-              <div className="bento-content markdown-rendered prose prose-invert max-w-none">
-                <ReactMarkdown>
-                  {item.content ? item.content.replace(/\\n/g, '\n') : ""}
-                </ReactMarkdown>
-              </div>
-            </div>
-          ))}
+          {/* OUTPUT GALLERY */}
+          {results && (
+            <section className="gallery-grid fade-in" style={{ marginTop: '2rem' }}>
+              {[
+                { title: 'Blog Post', content: results.blog_post },
+                { title: 'Social Media Thread', content: results.social_thread },
+                { title: 'Email Teaser', content: results.email_teaser }
+              ].map((item, id) => (
+                <div className="bento-card glass" key={id}>
+                  <div className="bento-header">
+                    <span className="bento-title">{item.title}</span>
+                    <button className="copy-btn transition-all duration-200" onClick={() => copyToClipboard(item.content, id)}>
+                      {copiedId === id ? (
+                        <span className="flex items-center gap-1 text-green-500 text-sm font-medium animate-in fade-in zoom-in duration-300">
+                          <CheckCircle size={16} /> Copied!
+                        </span>
+                      ) : (
+                        <Copy size={18} className="transition-all hover:scale-110" />
+                      )}
+                    </button>
+                  </div>
+                  <div className="bento-content markdown-rendered prose prose-invert max-w-none">
+                    <ReactMarkdown>
+                      {item.content ? item.content.replace(/\\n/g, '\n') : ""}
+                    </ReactMarkdown>
+                  </div>
+                </div>
+              ))}
+            </section>
+          )}
+
+          <div className="action-row" style={{ marginTop: '2.5rem' }}>
+            <button 
+              className="bg-[#34c759] hover:bg-[#2eaa4d] text-white py-3 px-8 rounded-lg font-semibold transition-all flex items-center justify-center cursor-pointer" 
+              onClick={() => { setAppState('idle'); setSourceInput(''); }}
+            >
+              Start New Project
+            </button>
+          </div>
         </section>
       )}
     </div>
