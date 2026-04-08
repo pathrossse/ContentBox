@@ -107,17 +107,17 @@ export default function Home() {
       </header>
 
       {/* INPUT SECTION */}
-      <section className="input-section fade-in">
+      <section className="flex flex-col md:flex-row gap-4 w-full max-w-4xl mx-auto items-stretch md:items-center fade-in mb-12">
         <input 
           type="text" 
-          className="input-field" 
+          className="input-field w-full" 
           placeholder="Enter Source URL or Raw Text..." 
           value={sourceInput}
           onChange={(e) => setSourceInput(e.target.value)}
           disabled={appState !== 'idle'}
         />
         <button 
-          className={`bg-[#FFDE59] text-black border-[3px] border-black rounded-full py-3 px-8 font-bold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed ${
+          className={`w-full md:w-auto bg-[#FFDE59] text-black border-[3px] border-black rounded-full py-3 px-8 font-bold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed ${
             appState === 'analyzing' 
               ? 'shadow-none translate-x-[2px] translate-y-[2px]' 
               : 'shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]'
