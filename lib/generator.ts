@@ -17,9 +17,9 @@ export async function generateContent(insights: any, retryCount = 0): Promise<Ge
 
   const systemInstructions = `You are an Expert Content Marketer. Use the provided high-density insights to generate authoritative content.
   Output strict JSON:
-  - blog_post: A deep, long-form SEO blog post (Target: 1,500 words). Use H1, H2, H3. Include intro, technical analysis, data interpretation, and conclusion.
-  - social_thread: 8-12 comprehensive tweets following a Problem-Solution-Result arc.
-  - email_teaser: A sharp, CTR-focused hook (3-5 lines max).
+  - blog_post: A deep, long-form SEO blog post in Markdown format. IMPORTANT: Use ONLY Markdown (##, ###, etc.) and NO HTML tags.
+  - social_thread: An array of 5-10 virality-focused tweets. Angle 1: Hook/Problem. Middle: Deep Value. End: Result/Call-to-Action.
+  - email_teaser: A CTR-focused teaser (50-150 words). Format: 1 sentence hook, followed by 3 bullet points of value, then a CTA. Include a "subject" field inside this object or as part of the text.
   - status: "complete"`;
   
   const prompt = `
@@ -28,9 +28,9 @@ export async function generateContent(insights: any, retryCount = 0): Promise<Ge
     
     TASK: Generate high-authority content. 
     CONSTRAINTS: 
-    - Blog MUST be detailed and approximately 1,500 words.
-    - Social thread must be exactly 8-12 strings.
-    - Email must be concise (3-5 lines).
+    - Blog: Strictly Markdown, No HTML tags. Proper professional language.
+    - Social: 5-10 strings, each string MUST be under 200 characters. 
+    - Email: 50-150 words total. Subject line MUST be under 40 words. Use 1 hook sentence + 3 bullets.
   `;
 
   const controller = new AbortController();
