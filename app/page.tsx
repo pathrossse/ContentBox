@@ -167,7 +167,7 @@ export default function Home() {
                 className="bg-white text-black border-[3px] border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] rounded-full py-4 px-12 font-bold transition-all flex items-center justify-center gap-2 cursor-pointer" 
                 onClick={handleGenerate}
               >
-                <Zap size={20}/> Confirm & Generate High-Quality Content
+                <Zap size={20}/> Confirm & Generate
               </button>
             </div>
           )}
