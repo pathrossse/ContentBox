@@ -17,9 +17,19 @@ export default function Home() {
   const [sourceInput, setSourceInput] = useState('');
   const [factSheet, setFactSheet] = useState('');
   const [previewMode, setPreviewMode] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [ambiguityFlags, setAmbiguityFlags] = useState<string[]>([]);
   const [results, setResults] = useState<GenerationData | null>(null);
+
+  const systemInstructions = `You are an Expert Content Marketer. Use the provided high-density insights to generate authoritative content.
+  STRICT RULE: Strictly follow the user-edited facts provided below. Ignore the initial scraped data if it contradicts this updated sheet. The provided insights are your SOLE source of truth.
+  
+  Output strict JSON:
+  - blog_post: A deep, long-form SEO blog post in Markdown format. IMPORTANT: Use ONLY Markdown (##, ###, etc.) and NO HTML tags.
+  - social_thread: An array of 5-10 virality-focused tweets. Angle 1: Hook/Problem. Middle: Deep Value. End: Result/Call-to-Action.
+  - email_teaser: A CTR-focused teaser (50-150 words). Format: 1 sentence hook, followed by 3 bullet points of value, then a CTA. Include a "subject" field inside this object or as part of the text.
+  - status: "complete"`;
 
   const formatContent = (content: any): string => {
     if (!content) return '';
@@ -75,7 +85,7 @@ export default function Home() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fact_sheet: factSheet })
+        body: JSON.stringify({ fact_sheet: factSheet, instructions: systemInstructions })
       });
       const data = await res.json();
       
@@ -136,30 +146,29 @@ export default function Home() {
       {/* VERIFICATION GATE - Phase 1 */}
       {(appState === 'verifying' || appState === 'generating' || appState === 'finished') && (
         <section className="fade-in">
-          <div className="gate-container">
-            {/* Fact Sheet Review */}
-            <div className={`glass gate-panel ${appState === 'finished' ? 'opacity-70 grayscale-[0.3]' : ''}`}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h2 className="text-xl font-semibold text-[#ededed] flex items-center gap-2 m-0"><FileText size={20}/> Fact-Sheet Review</h2>
-                <button onClick={() => setPreviewMode(!previewMode)} className="bg-[#5856D6] hover:bg-[#4644b1] active:scale-[0.98] text-white py-1.5 px-3 rounded text-sm font-medium transition-all flex items-center gap-1.5 cursor-pointer">
-                  {previewMode ? <><Edit3 size={14}/> Edit Markdown</> : <><Eye size={14}/> Preview HTML</>}
+          <div className="gate-container fade-in">
+            <div className="gate-panel glass">
+              <div className="bento-header">
+                <h3 className="gate-title"><FileText size={18} /> Fact-Sheet Review</h3>
+                <button 
+                  className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                  onClick={() => setIsEditing(!isEditing)}
+                >
+                  {isEditing ? 'Save & Preview' : 'Edit Facts'}
                 </button>
               </div>
               
-              {previewMode ? (
-                <div className="md-editor markdown-rendered prose prose-invert max-w-none" style={{ overflowY: 'auto' }}>
-                  <ReactMarkdown>
-                    {formatContent(factSheet) || "No content generated yet."}
-                  </ReactMarkdown>
-                </div>
-              ) : (
+              {isEditing ? (
                 <textarea 
-                  className="md-editor"
+                  className="md-editor w-full h-[400px] mt-4"
                   value={factSheet}
                   onChange={(e) => setFactSheet(e.target.value)}
-                  placeholder="Review and edit generated facts..."
-                  disabled={appState === 'generating' || appState === 'finished'}
+                  placeholder="Review and refine the extracted facts here..."
                 />
+              ) : (
+                <div className="md-editor mt-4 markdown-rendered overflow-y-auto h-[400px]">
+                  <ReactMarkdown>{factSheet}</ReactMarkdown>
+                </div>
               )}
             </div>
             

@@ -58,8 +58,8 @@ export async function runExtractionPipeline(url: string): Promise<ExtractionResp
 export async function runGenerationPipeline(factSheet: string): Promise<GenerationResponse> {
   console.time("generation-total");
 
-  // We pass the entire factSheet string as the source of truth
-  const content = await generateContent({ background: factSheet });
+  // We pass the entire factSheet string as the SOLE source of truth
+  const content = await generateContent({ fact_sheet: factSheet });
   
   console.timeEnd("generation-total");
 
