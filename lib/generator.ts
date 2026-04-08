@@ -15,13 +15,14 @@ export async function generateContent(insights: any, retryCount = 0): Promise<Ge
   // Model selection with fallback logic
   const model = retryCount > 0 ? "llama-3.1-8b-instant" : "llama-3.3-70b-versatile";
 
-  const systemInstructions = "You are a master social media strategist. Generate formatted, high-quality content from the provided JSON insights. Return strict JSON with fields: blog_post (Markdown), social_thread (array of 3 posts), email_teaser (Markdown).";
+  const systemInstructions = "You are a master social media strategist. Generate formatted, high-quality content from the provided JSON insights. Return strict JSON with fields: blog_post (Markdown string), social_thread (Array of strings, each string is one social post), email_teaser (Markdown string).";
   
   const prompt = `
     INSIGHTS DATA:
     ${JSON.stringify(insights, null, 2)}
     
-    TASK: Generate formatted content. Use platform-specific hashtags for social posts. Ensure the output is valid JSON.
+    TASK: Generate formatted content. Use platform-specific hashtags for social posts. 
+    IMPORTANT: social_thread must be an array of simple strings, NOT objects.
   `;
 
   try {

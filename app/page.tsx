@@ -21,10 +21,20 @@ export default function Home() {
   const [ambiguityFlags, setAmbiguityFlags] = useState<string[]>([]);
   const [results, setResults] = useState<GenerationData | null>(null);
 
-  const formatContent = (content: any) => {
-    if (Array.isArray(content)) return content.join('\n\n');
+  const formatContent = (content: any): string => {
+    if (!content) return '';
+    if (Array.isArray(content)) {
+      return content.map(item => {
+        if (typeof item === 'string') return item;
+        if (typeof item === 'object' && item !== null) {
+          // Attempt to find any string property (e.g., item.post, item.text, etc.)
+          return Object.values(item).find(v => typeof v === 'string') || JSON.stringify(item);
+        }
+        return String(item);
+      }).join('\n\n');
+    }
     if (typeof content === 'string') return content.replace(/\\n/g, '\n');
-    return '';
+    return String(content);
   };
 
   // STEP 1: Analyze & Extract Insights
