@@ -7,7 +7,7 @@ export interface GeminiInsights {
 }
 
 export async function extractInsights(rawText: string): Promise<GeminiInsights> {
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+  const GEMINI_API_KEY = process.env.GOOGLE_API_KEY;
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
   const prompt = `
