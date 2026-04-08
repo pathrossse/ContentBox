@@ -1,5 +1,5 @@
 import { scrapeUrl } from './scraper';
-import { extractInsights } from './gemini';
+import { extractInsights } from './extractor';
 import { generateContent } from './generator';
 
 // Final return interface for frontend compatibility
@@ -20,20 +20,20 @@ export async function runDualPipeline(url: string, _preferences?: any): Promise<
   const rawText = await scrapeUrl(url);
   console.timeEnd("scrape");
 
-  // 2. GEMINI FLASH EXTRACTION
-  console.time("gemini-extract");
+  // 2. GROQ EXTRACTION
+  console.time("groq-extract");
   const insights = await extractInsights(rawText);
-  console.timeEnd("gemini-extract");
+  console.timeEnd("groq-extract");
 
-  // 3. GEMINI PRO GENERATION
-  console.time("gemini-generate");
+  // 3. GROQ GENERATION
+  console.time("groq-generate");
   const content = await generateContent(insights);
-  console.timeEnd("gemini-generate");
+  console.timeEnd("groq-generate");
 
   console.timeEnd("total");
 
   return {
-    thread_id: `gemini_${Date.now()}`,
+    thread_id: `groq_${Date.now()}`,
     fact_sheet: insights.summary + "\n\n### Key Facts\n" + insights.keyPoints.map(p => `- ${p}`).join("\n"),
     ambiguity_flags: [
       `Tone: ${insights.tone}`,
