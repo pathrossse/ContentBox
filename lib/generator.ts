@@ -15,14 +15,21 @@ export async function generateContent(insights: any, retryCount = 0): Promise<Ge
   // Model selection with fallback logic
   const model = retryCount > 0 ? "llama-3.1-8b-instant" : "llama-3.3-70b-versatile";
 
-  const systemInstructions = "You are a master social media strategist. Generate formatted, high-quality content from the provided JSON insights. Return strict JSON with fields: blog_post (Markdown string), social_thread (Array of strings, each string is one social post), email_teaser (Markdown string).";
+  const systemInstructions = `You are an Expert Content Marketer with a persuasive and engaging tone. Generate formatted, high-quality content from the provided JSON insights. 
+  Output strict JSON with these fields:
+  - blog_post: A comprehensive Markdown blog post.
+  - social_thread: An array of 3 strings. Angle 1: The Problem. Angle 2: The Solution. Angle 3: The Result/Benefit.
+  - email_teaser: A persuasive email (150-200 words). Must include a catchy Subject Line, a personalized hook, 3 bullet points of value, and a strong Call to Action.`;
   
   const prompt = `
     INSIGHTS DATA:
     ${JSON.stringify(insights, null, 2)}
     
     TASK: Generate formatted content. Use platform-specific hashtags for social posts. 
-    IMPORTANT: social_thread must be an array of simple strings, NOT objects.
+    IMPORTANT: 
+    - Email teaser MUST be between 150-200 words.
+    - social_thread MUST be an array of simple strings, NOT objects.
+    - Tone must be persuasive, engaging, and authoritative.
   `;
 
   try {
