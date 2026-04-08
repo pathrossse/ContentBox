@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from 'react';
-import { Bot, CheckCircle, FileText, AlertTriangle, Copy, Loader2, Edit3, Eye } from 'lucide-react';
+import { Bot, CheckCircle, FileText, AlertTriangle, Copy, Loader2, Edit3, Eye, Zap } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
-type GUIState = 'idle' | 'analyzing' | 'finished';
+type GUIState = 'idle' | 'analyzing' | 'verifying' | 'generating' | 'finished';
 
 interface GenerationData {
   blog_post: string;
@@ -27,6 +27,7 @@ export default function Home() {
     return '';
   };
 
+  // STEP 1: Analyze & Extract Insights
   const handleAnalyze = async () => {
     if (!sourceInput.trim()) return;
     setAppState('analyzing');
@@ -40,19 +41,33 @@ export default function Home() {
       
       if (!res.ok) throw new Error(data.detail || 'Analysis failed');
       
-      // Update all stats in one pass
       setFactSheet(data.fact_sheet);
       setAmbiguityFlags(data.ambiguity_flags || []);
-      setResults({
-        blog_post: data.blog_post,
-        social_thread: data.social_thread,
-        email_teaser: data.email_teaser
-      });
-      
-      setAppState('finished');
+      setAppState('verifying');
     } catch (err: any) {
       alert(err.message);
       setAppState('idle');
+    }
+  };
+
+  // STEP 2: Confirm & Generate Final Content
+  const handleGenerate = async () => {
+    setAppState('generating');
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fact_sheet: factSheet })
+      });
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.detail || 'Generation failed');
+      
+      setResults(data);
+      setAppState('finished');
+    } catch (err: any) {
+      alert(err.message);
+      setAppState('verifying');
     }
   };
 
@@ -92,18 +107,18 @@ export default function Home() {
             <span className="flex items-center gap-2">
               <Loader2 size={18} className="animate-spin" /> Analyzing...
             </span>
-          ) : 'Analyze'}
+          ) : 'Analyze & Extract'}
         </button>
       </section>
 
-      {/* VERIFICATION GATE & OUTPUT (MERGED) */}
-      {appState === 'finished' && (
+      {/* VERIFICATION GATE */}
+      {(appState === 'verifying' || appState === 'generating' || appState === 'finished') && (
         <section className="fade-in">
           <div className="gate-container">
-            <div className="glass gate-panel">
+            <div className={`glass gate-panel ${appState === 'finished' ? 'opacity-70 grayscale-[0.3]' : ''}`}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <h2 className="text-xl font-semibold text-[#ededed] flex items-center gap-2 m-0"><FileText size={20}/> Fact-Sheet Review</h2>
-                <button onClick={() => setPreviewMode(!previewMode)} className="bg-[#007AFF] hover:bg-[#005bb5] active:scale-[0.98] text-white py-1.5 px-3 rounded text-sm font-medium transition-all flex items-center gap-1.5 cursor-pointer">
+                <button onClick={() => setPreviewMode(!previewMode)} className="bg-[#5856D6] hover:bg-[#4644b1] active:scale-[0.98] text-white py-1.5 px-3 rounded text-sm font-medium transition-all flex items-center gap-1.5 cursor-pointer">
                   {previewMode ? <><Edit3 size={14}/> Edit Markdown</> : <><Eye size={14}/> Preview HTML</>}
                 </button>
               </div>
@@ -119,7 +134,8 @@ export default function Home() {
                   className="md-editor"
                   value={factSheet}
                   onChange={(e) => setFactSheet(e.target.value)}
-                  placeholder="Review generated facts..."
+                  placeholder="Review and edit generated facts..."
+                  disabled={appState === 'generating' || appState === 'finished'}
                 />
               )}
             </div>
@@ -135,11 +151,26 @@ export default function Home() {
                   ))
                 )}
               </ul>
+
+              {appState === 'verifying' && (
+                <button 
+                  className="mt-6 w-full bg-[#34c759] hover:bg-[#2eaa4d] active:scale-[0.98] text-white py-4 px-6 rounded-lg font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-green-900/20" 
+                  onClick={handleGenerate}
+                >
+                  <Zap size={20}/> Confirm & Generate High-Quality Content
+                </button>
+              )}
+
+              {appState === 'generating' && (
+                <div className="mt-6 w-full bg-[#34c759]/30 text-[#34c759] py-4 px-6 rounded-lg font-bold flex items-center justify-center gap-2 border border-[#34c759]/50 animate-pulse">
+                  <Loader2 size={20} className="animate-spin" /> Finalizing Assets...
+                </div>
+              )}
             </div>
           </div>
 
           {/* OUTPUT GALLERY */}
-          {results && (
+          {appState === 'finished' && results && (
             <section className="gallery-grid fade-in" style={{ marginTop: '2rem' }}>
               {[
                 { title: 'Blog Post', content: results.blog_post },
@@ -169,14 +200,16 @@ export default function Home() {
             </section>
           )}
 
-          <div className="action-row" style={{ marginTop: '2.5rem' }}>
-            <button 
-              className="bg-[#34c759] hover:bg-[#2eaa4d] text-white py-3 px-8 rounded-lg font-semibold transition-all flex items-center justify-center cursor-pointer" 
-              onClick={() => { setAppState('idle'); setSourceInput(''); }}
-            >
-              Start New Project
-            </button>
-          </div>
+          {appState === 'finished' && (
+            <div className="action-row" style={{ marginTop: '2.5rem' }}>
+              <button 
+                className="bg-transparent hover:bg-white/5 border border-white/20 text-white py-3 px-8 rounded-lg font-semibold transition-all flex items-center justify-center cursor-pointer" 
+                onClick={() => { setAppState('idle'); setSourceInput(''); setFactSheet(''); setResults(null); }}
+              >
+                Start New Project
+              </button>
+            </div>
+          )}
         </section>
       )}
     </div>

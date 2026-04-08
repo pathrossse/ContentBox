@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { runExtractionPipeline } from '@/lib/ai';
+import { runGenerationPipeline } from '@/lib/ai';
 
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
   try {
     const start = Date.now();
-    const { source } = await req.json();
+    const { fact_sheet } = await req.json();
 
-    if (!source) {
-      return NextResponse.json({ detail: "Source URL or text is required" }, { status: 400 });
+    if (!fact_sheet) {
+      return NextResponse.json({ detail: "Fact sheet is required for generation" }, { status: 400 });
     }
 
-    const result = await runExtractionPipeline(source);
+    const result = await runGenerationPipeline(fact_sheet);
     
     const elapsed = Date.now() - start;
 
@@ -24,9 +24,9 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('API Error:', error);
+    console.error('Generation Error:', error);
     return NextResponse.json(
-      { detail: error.message || "An unexpected error occurred" },
+      { detail: error.message || "Content generation failed" },
       { status: 500 }
     );
   }
