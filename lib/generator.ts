@@ -6,7 +6,7 @@ export interface GeneratorOutput {
 
 export async function generateContent(insights: any): Promise<GeneratorOutput> {
   const GEMINI_API_KEY = process.env.GOOGLE_API_KEY;
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
   const prompt = `
     You are a master social media strategist. Generate formatted, high-quality content from the provided insights. 
     Return strict JSON only with fields: blog_post (Markdown), social_thread (array of 3 strings), email_teaser (Markdown).
