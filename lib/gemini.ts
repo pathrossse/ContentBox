@@ -19,15 +19,16 @@ export async function extractInsights(rawText: string): Promise<GeminiInsights> 
 
   const requestBody = {
     contents: [{ 
-      role: 'user',
       parts: [{ text: prompt }] 
     }],
     generationConfig: {
-      response_mime_type: "application/json"
+      temperature: 0.1,
+      maxOutputTokens: 2048,
+      responseMimeType: "application/json"
     }
   };
 
-  console.log("Gemini Request Body:", JSON.stringify(requestBody, null, 2));
+  console.log("Gemini Flash Request Payload:", JSON.stringify(requestBody, null, 2));
 
   try {
     const response = await fetch(endpoint, {
@@ -39,21 +40,21 @@ export async function extractInsights(rawText: string): Promise<GeminiInsights> 
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Gemini API Error (${response.status}):`, errorText);
+      console.error(`Gemini Flash API Error (${response.status}):`, errorText);
       throw new Error(`Gemini API Error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
     const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
     
-    if (!resultText) throw new Error("Empty response from Gemini");
+    if (!resultText) throw new Error("Empty response from Gemini Flash");
 
     return JSON.parse(resultText) as GeminiInsights;
 
   } catch (error: any) {
     console.warn("Gemini Extraction Failed, using Regex Fallback:", error.message);
     
-    // REGEX FALLBACK: Never crash the pipeline
+    // REGEX FALLBACK
     const summary = rawText.slice(0, 200) + "...";
     const mainTopicMatch = rawText.match(/([A-Z][a-z]+(?:\s[A-Z][a-z]+)*)/);
     

@@ -8,10 +8,9 @@ export async function generateContent(insights: any): Promise<GeneratorOutput> {
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`;
 
-  const systemInstructions = "You are a master social media strategist. Generate formatted, high-quality content from the provided insights. Return strict JSON with fields: blog_post (Markdown), social_thread (array of 3 posts), email_teaser (Markdown).";
-  
   const prompt = `
-    ${systemInstructions}
+    You are a master social media strategist. Generate formatted, high-quality content from the provided insights. 
+    Return strict JSON only with fields: blog_post (Markdown), social_thread (array of 3 strings), email_teaser (Markdown).
     
     INSIGHTS DATA:
     ${JSON.stringify(insights, null, 2)}
@@ -21,11 +20,12 @@ export async function generateContent(insights: any): Promise<GeneratorOutput> {
 
   const requestBody = {
     contents: [{ 
-      role: 'user',
       parts: [{ text: prompt }] 
     }],
     generationConfig: {
-      response_mime_type: "application/json"
+      temperature: 0.1,
+      maxOutputTokens: 2048,
+      responseMimeType: "application/json"
     }
   };
 
@@ -36,7 +36,7 @@ export async function generateContent(insights: any): Promise<GeneratorOutput> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody),
-      signal: AbortSignal.timeout(12000), // Slightly longer for Pro and large output
+      signal: AbortSignal.timeout(15000), // Pro may take longer
     });
 
     if (!response.ok) {
