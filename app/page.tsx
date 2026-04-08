@@ -111,10 +111,11 @@ export default function Home() {
         </button>
       </section>
 
-      {/* VERIFICATION GATE */}
+      {/* VERIFICATION GATE - Phase 1 */}
       {(appState === 'verifying' || appState === 'generating' || appState === 'finished') && (
         <section className="fade-in">
           <div className="gate-container">
+            {/* Fact Sheet Review */}
             <div className={`glass gate-panel ${appState === 'finished' ? 'opacity-70 grayscale-[0.3]' : ''}`}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <h2 className="text-xl font-semibold text-[#ededed] flex items-center gap-2 m-0"><FileText size={20}/> Fact-Sheet Review</h2>
@@ -140,7 +141,8 @@ export default function Home() {
               )}
             </div>
             
-            <div className="glass gate-panel warnings">
+            {/* Ambiguity Flags */}
+            <div className={`glass gate-panel warnings ${appState === 'finished' ? 'opacity-70 grayscale-[0.3]' : ''}`}>
               <h2 className="gate-title" style={{ color: 'var(--warning-color)' }}><AlertTriangle size={20}/> Ambiguity Flags</h2>
               <ul className="warnings-list">
                 {ambiguityFlags.length === 0 ? (
@@ -151,27 +153,32 @@ export default function Home() {
                   ))
                 )}
               </ul>
-
-              {appState === 'verifying' && (
-                <button 
-                  className="mt-6 w-full bg-[#34c759] hover:bg-[#2eaa4d] active:scale-[0.98] text-white py-4 px-6 rounded-lg font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-green-900/20" 
-                  onClick={handleGenerate}
-                >
-                  <Zap size={20}/> Confirm & Generate High-Quality Content
-                </button>
-              )}
-
-              {appState === 'generating' && (
-                <div className="mt-6 w-full bg-[#34c759]/30 text-[#34c759] py-4 px-6 rounded-lg font-bold flex items-center justify-center gap-2 border border-[#34c759]/50 animate-pulse">
-                  <Loader2 size={20} className="animate-spin" /> Finalizing Assets...
-                </div>
-              )}
             </div>
           </div>
 
-          {/* OUTPUT GALLERY */}
+          {/* ACTION ROW - This is the "Confirmation" step between review and final output */}
+          {appState === 'verifying' && (
+            <div className="action-row" style={{ marginTop: '2rem' }}>
+              <button 
+                className="bg-[#34c759] hover:bg-[#2eaa4d] active:scale-[0.98] text-white py-4 px-12 rounded-lg font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-green-900/20" 
+                onClick={handleGenerate}
+              >
+                <Zap size={20}/> Confirm & Generate High-Quality Content
+              </button>
+            </div>
+          )}
+
+          {appState === 'generating' && (
+            <div className="action-row" style={{ marginTop: '2rem' }}>
+              <div className="bg-[#34c759]/30 text-[#34c759] py-4 px-12 rounded-lg font-bold flex items-center justify-center gap-2 border border-[#34c759]/50 animate-pulse">
+                <Loader2 size={20} className="animate-spin" /> Finalizing Assets...
+              </div>
+            </div>
+          )}
+
+          {/* OUTPUT GALLERY - Phase 2 */}
           {appState === 'finished' && results && (
-            <section className="gallery-grid fade-in" style={{ marginTop: '2rem' }}>
+            <section className="gallery-grid fade-in" style={{ marginTop: '2.5rem' }}>
               {[
                 { title: 'Blog Post', content: results.blog_post },
                 { title: 'Social Media Thread', content: results.social_thread },
@@ -200,6 +207,7 @@ export default function Home() {
             </section>
           )}
 
+          {/* RESET ACTION */}
           {appState === 'finished' && (
             <div className="action-row" style={{ marginTop: '2.5rem' }}>
               <button 
