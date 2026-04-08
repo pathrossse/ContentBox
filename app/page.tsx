@@ -106,42 +106,72 @@ export default function Home() {
   };
 
   return (
-    <div className="container">
+    <div className="min-h-screen bg-[#0A0A0A] text-[#EDEDED] relative overflow-hidden flex flex-col items-center justify-start transition-all duration-700">
+      {/* BACKGROUND DECORATIONS */}
+      <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#FFDE59]/10 rounded-full blur-[120px] animate-pulse pointer-events-none opacity-40" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#5856D6]/10 rounded-full blur-[150px] animate-pulse pointer-events-none opacity-30" style={{ animationDelay: '2s' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '32px 32px' }}></div>
+      </div>
+
       {/* HEADER */}
-      <header className="header">
-        <div className="logo"><Bot size={24} style={{ display: 'inline', marginRight: 8, verticalAlign: 'middle' }}/> ContentBox</div>
-        <div className="status-badge">
-          <div className="status-dot"></div>
+      <header className="w-full flex justify-between items-center px-8 py-6 z-10">
+        <div className="logo flex items-center gap-2 text-2xl font-black tracking-tighter">
+          <div className="bg-[#FFDE59] p-1.5 rounded-lg shadow-[0_0_15px_rgba(255,222,89,0.3)]">
+            <Bot size={28} className="text-black" />
+          </div>
+          <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">ContentBox</span>
+        </div>
+        <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full text-xs font-semibold text-white/50 tracking-widest uppercase">
+          <div className="status-dot w-2 h-2 bg-green-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
           System Status: Online
         </div>
       </header>
 
-      {/* INPUT SECTION */}
-      <section className="flex flex-col md:flex-row gap-4 w-full max-w-4xl mx-auto items-stretch md:items-center fade-in mb-12">
-        <input 
-          type="text" 
-          className="input-field w-full" 
-          placeholder="Enter Source URL or Raw Text..." 
-          value={sourceInput}
-          onChange={(e) => setSourceInput(e.target.value)}
-          disabled={appState !== 'idle'}
-        />
-        <button 
-          className={`w-full md:w-auto bg-[#FFDE59] text-black border-[3px] border-black rounded-full py-3 px-8 font-bold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed ${
-            appState === 'analyzing' 
-              ? 'shadow-none translate-x-[2px] translate-y-[2px]' 
-              : 'shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]'
-          }`}
-          onClick={handleAnalyze}
-          disabled={appState !== 'idle' || !sourceInput.trim()}
-        >
-          {appState === 'analyzing' ? (
-            <span className="flex items-center gap-2">
-              <Loader2 size={18} className="animate-spin" /> Analyzing...
-            </span>
-          ) : 'Analyze & Extract'}
-        </button>
-      </section>
+      <main className={`relative z-10 w-full flex flex-col items-center flex-1 ${appState === 'idle' ? 'justify-center pb-32' : 'pt-12'}`}>
+        
+        {/* HERO SECTION - Only visible in IDLE */}
+        {appState === 'idle' && (
+          <div className="text-center mb-12 fade-in">
+            <h1 className="text-5xl md:text-7xl font-black mb-6 tracking-tight leading-[1.1] max-w-4xl mx-auto bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
+              Transform Content into <span className="text-[#FFDE59]">Engaging Posts</span>
+            </h1>
+            <p className="text-lg md:text-xl text-white/40 max-w-2xl mx-auto font-medium">
+              Extract insights, automate creative generation, and scale your content factory in seconds.
+            </p>
+          </div>
+        )}
+
+        {/* INPUT SECTION */}
+        <section className={`flex flex-col md:flex-row gap-4 w-full max-w-4xl mx-auto items-stretch md:items-center fade-in px-6 ${appState === 'idle' ? '' : 'mb-12'}`}>
+          <div className="relative flex-1 group">
+            <input 
+              type="text" 
+              className="input-field w-full rounded-2xl bg-white/5 border-white/10 focus:border-[#FFDE59] focus:ring-4 focus:ring-[#FFDE59]/10 transition-all py-4 px-6 text-lg outline-none" 
+              placeholder="Paste a URL or raw text here..." 
+              value={sourceInput}
+              onChange={(e) => setSourceInput(e.target.value)}
+              disabled={appState !== 'idle'}
+            />
+          </div>
+          <button 
+            className={`w-full md:w-auto bg-gradient-to-br from-[#FFDE59] to-[#FFBD59] text-black border-none rounded-2xl py-4 px-10 font-bold text-lg transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_10px_30px_rgba(255,222,89,0.2)] hover:shadow-[0_15px_40px_rgba(255,222,89,0.3)] hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed ${
+              appState === 'analyzing' ? 'opacity-80 scale-95' : ''
+            }`}
+            onClick={handleAnalyze}
+            disabled={appState !== 'idle' || !sourceInput.trim()}
+          >
+            {appState === 'analyzing' ? (
+              <span className="flex items-center gap-2">
+                <Loader2 size={24} className="animate-spin" /> Analyzing...
+              </span>
+            ) : (
+              <>
+                <Zap size={20} fill="currentColor" /> Analyze & Extract
+              </>
+            )}
+          </button>
+        </section>
 
       {/* VERIFICATION GATE - Phase 1 */}
       {(appState === 'verifying' || appState === 'generating' || appState === 'finished') && (
@@ -251,6 +281,7 @@ export default function Home() {
           )}
         </section>
       )}
+      </main>
     </div>
   );
 }
