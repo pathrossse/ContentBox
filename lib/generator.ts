@@ -7,7 +7,6 @@ export interface GeneratorOutput {
 export async function generateContent(insights: any): Promise<GeneratorOutput> {
   const GEMINI_API_KEY = process.env.GOOGLE_API_KEY;
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${GEMINI_API_KEY}`;
-
   const prompt = `
     You are a master social media strategist. Generate formatted, high-quality content from the provided insights. 
     Return strict JSON only with fields: blog_post (Markdown), social_thread (array of 3 strings), email_teaser (Markdown).
@@ -19,8 +18,8 @@ export async function generateContent(insights: any): Promise<GeneratorOutput> {
   `;
 
   const requestBody = {
-    contents: [{ 
-      parts: [{ text: prompt }] 
+    contents: [{
+      parts: [{ text: prompt }]
     }],
     generationConfig: {
       temperature: 0.1,
@@ -47,7 +46,7 @@ export async function generateContent(insights: any): Promise<GeneratorOutput> {
 
     const data = await response.json();
     const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    
+
     if (!resultText) throw new Error("Empty response from Gemini Pro");
 
     return JSON.parse(resultText) as GeneratorOutput;
