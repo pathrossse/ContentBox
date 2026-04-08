@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "functions": {
+    "/api/analyze": {
+      "maxDuration": 30
+    }
+  }
+}

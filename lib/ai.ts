@@ -1,46 +1,48 @@
-export async function runAIService(content: string): Promise<any> {
-  const prompt = `
-    Analyze the following source material and generate marketing assets.
-    Return a valid JSON object with the following keys:
-    "fact_sheet" (Markdown), "ambiguity_flags" (list), "blog_post" (Markdown), "social_thread" (list of strings), "email_teaser" (Markdown).
-    
-    SOURCE:
-    ${content}
-    
-    CRITICAL: Return ONLY raw JSON. No conversational text. No markdown blocks.
-  `;
+import { scrapeUrl } from './scraper';
+import { extractInsights } from './gemini';
+import { generatePosts } from './claude';
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': process.env.GOOGLE_API_KEY!,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
+// Final return interface for frontend compatibility
+export interface PipelineResponse {
+  thread_id: string;
+  fact_sheet: string;
+  ambiguity_flags: string[];
+  blog_post: string;
+  social_thread: string[];
+  email_teaser: string;
+  performance?: Record<string, string>;
+}
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`AI request failed: ${res.status} - ${errorText}`);
-  }
+export async function runDualPipeline(url: string, _preferences?: any): Promise<PipelineResponse> {
+  console.time("total");
 
-  const data = await res.json();
-  const textContent = data.content?.[0]?.text ?? '';
-  
-  try {
-    // Attempt to parse JSON directly or extract it from blocks
-    let jsonMatch = textContent.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
-    }
-    return JSON.parse(textContent);
-  } catch (e) {
-    console.error('JSON Parse Error:', textContent);
-    throw new Error('AI failed to produce a valid JSON report. Please try again.');
-  }
+  // 1. SCRAPE
+  console.time("scrape");
+  const rawText = await scrapeUrl(url);
+  console.timeEnd("scrape");
+
+  // 2. GEMINI EXTRACTION
+  console.time("gemini-extract");
+  const insights = await extractInsights(rawText);
+  console.timeEnd("gemini-extract");
+
+  // 3. CLAUDE GENERATION
+  console.time("claude-generate");
+  const content = await generatePosts(insights);
+  console.timeEnd("claude-generate");
+
+  console.timeEnd("total");
+
+  return {
+    thread_id: `dual_${Date.now()}`,
+    fact_sheet: insights.summary + "\n\n### Key Facts\n" + insights.keyPoints.map(p => `- ${p}`).join("\n"),
+    ambiguity_flags: [
+      `Tone: ${insights.tone}`,
+      `Target: ${insights.targetAudience}`,
+      `Topic: ${insights.mainTopic}`
+    ],
+    blog_post: content.blog_post,
+    social_thread: content.social_thread,
+    email_teaser: content.email_teaser
+  };
 }

@@ -1,32 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { scrapeUrl } from '@/lib/scraper';
-import { runAIService } from '@/lib/ai';
+import { runDualPipeline } from '@/lib/ai';
 
-export const maxDuration = 10; // Adjusted for Vercel Hobby Tier limits
+export const maxDuration = 30; // Increased for dual-AI pipeline
 
 export async function POST(req: NextRequest) {
   try {
+    const start = Date.now();
     const { source } = await req.json();
 
     if (!source) {
       return NextResponse.json({ detail: "Source URL or text is required" }, { status: 400 });
     }
 
-    // 1. Scrape content
-    const scrapedContent = await scrapeUrl(source);
+    // Capture the time before start
+    const result = await runDualPipeline(source);
+    
+    // Performance metrics (simplified as we aren't using a complex timer in the route)
+    const elapsed = Date.now() - start;
 
-    // 2. Process with AI
-    const aiResult = await runAIService(scrapedContent);
-
-    // 3. Return combined payload
-    return NextResponse.json({
-      thread_id: `next_${Date.now()}`,
-      fact_sheet: aiResult.fact_sheet,
-      ambiguity_flags: aiResult.ambiguity_flags,
-      // Porting the UI's expectation of receiving pre-generated content
-      blog_post: aiResult.blog_post,
-      social_thread: aiResult.social_thread,
-      email_teaser: aiResult.email_teaser
+    return NextResponse.json(result, {
+      headers: {
+        'X-Response-Time': `${elapsed}ms`,
+        'Cache-Control': 'no-store, max-age=0'
+      }
     });
 
   } catch (error: any) {
