@@ -99,7 +99,11 @@ export default function Home() {
           disabled={appState !== 'idle'}
         />
         <button 
-          className="bg-[#007AFF] hover:bg-[#005bb5] disabled:hover:bg-[#007AFF] disabled:opacity-50 active:scale-[0.98] text-white py-3 px-8 rounded-lg font-semibold transition-all flex items-center justify-center cursor-pointer disabled:cursor-not-allowed" 
+          className={`bg-[#FFDE59] text-black border-[3px] border-black rounded-full py-3 px-8 font-bold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed ${
+            appState === 'analyzing' 
+              ? 'shadow-none translate-x-[2px] translate-y-[2px]' 
+              : 'shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]'
+          }`}
           onClick={handleAnalyze}
           disabled={appState !== 'idle' || !sourceInput.trim()}
         >
@@ -160,7 +164,7 @@ export default function Home() {
           {appState === 'verifying' && (
             <div className="action-row" style={{ marginTop: '2rem' }}>
               <button 
-                className="bg-[#34c759] hover:bg-[#2eaa4d] active:scale-[0.98] text-white py-4 px-12 rounded-lg font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-green-900/20" 
+                className="bg-white text-black border-[3px] border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] rounded-full py-4 px-12 font-bold transition-all flex items-center justify-center gap-2 cursor-pointer" 
                 onClick={handleGenerate}
               >
                 <Zap size={20}/> Confirm & Generate High-Quality Content
@@ -170,7 +174,7 @@ export default function Home() {
 
           {appState === 'generating' && (
             <div className="action-row" style={{ marginTop: '2rem' }}>
-              <div className="bg-[#34c759]/30 text-[#34c759] py-4 px-12 rounded-lg font-bold flex items-center justify-center gap-2 border border-[#34c759]/50 animate-pulse">
+              <div className="bg-white text-black border-[3px] border-black translate-x-[2px] translate-y-[2px] rounded-full py-4 px-12 font-bold flex items-center justify-center gap-2 opacity-80 cursor-wait">
                 <Loader2 size={20} className="animate-spin" /> Finalizing Assets...
               </div>
             </div>
@@ -211,7 +215,7 @@ export default function Home() {
           {appState === 'finished' && (
             <div className="action-row" style={{ marginTop: '2.5rem' }}>
               <button 
-                className="bg-transparent hover:bg-white/5 border border-white/20 text-white py-3 px-8 rounded-lg font-semibold transition-all flex items-center justify-center cursor-pointer" 
+                className="bg-white text-black border-[3px] border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] rounded-full py-3 px-8 font-bold transition-all flex items-center justify-center cursor-pointer" 
                 onClick={() => { setAppState('idle'); setSourceInput(''); setFactSheet(''); setResults(null); }}
               >
                 Start New Project
