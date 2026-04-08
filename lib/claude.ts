@@ -17,12 +17,24 @@ export async function generatePosts(insights: any, retryCount = 0): Promise<Clau
 
   const systemPrompt = "Generate social media content from the provided JSON insights. Return strict JSON with: blog_post, social_thread (array of 3-5 posts), email_teaser. No conversational filler.";
   
+  // Validation: Ensure insights is a valid object
+  const validatedInsights = insights && typeof insights === 'object' ? insights : { error: "Invalid insights provided" };
+
   const userMessage = `
     INSIGHTS FROM SOURCE:
-    ${JSON.stringify(insights, null, 2)}
+    ${JSON.stringify(validatedInsights, null, 2)}
     
     TASK: Generate formatted content. Use platform-specific hashtags for social posts.
   `;
+
+  const requestBody = {
+    model: model,
+    max_tokens: 4000, // Explicitly safe under 4096
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userMessage }],
+  };
+
+  console.log(`Claude Request (${model}):`, JSON.stringify(requestBody, null, 2));
 
   try {
     const response = await fetch(endpoint, {
@@ -32,23 +44,21 @@ export async function generatePosts(insights: any, retryCount = 0): Promise<Clau
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
       },
-      body: JSON.stringify({
-        model: model,
-        max_tokens: 2048,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userMessage }],
-      }),
+      body: JSON.stringify(requestBody),
       signal: AbortSignal.timeout(10000),
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Claude API Error (${response.status}):`, errorText);
+
       if (retryCount < 1 && (response.status === 429 || response.status >= 500)) {
-        console.warn(`Claude ${model} failed with ${response.status}. Retrying with Haiku...`);
+        console.warn(`Claude ${model} failed. Retrying with Haiku...`);
         const backoffTime = retryCount === 0 ? 500 : 1500;
         await delay(backoffTime);
         return generatePosts(insights, retryCount + 1);
       }
-      throw new Error(`Claude API Error: ${response.status}`);
+      throw new Error(`Claude API Error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();

@@ -17,21 +17,30 @@ export async function extractInsights(rawText: string): Promise<GeminiInsights> 
     ${rawText}
   `;
 
+  const requestBody = {
+    contents: [{ 
+      role: 'user',
+      parts: [{ text: prompt }] 
+    }],
+    generationConfig: {
+      response_mime_type: "application/json"
+    }
+  };
+
+  console.log("Gemini Request Body:", JSON.stringify(requestBody, null, 2));
+
   try {
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          response_mime_type: "application/json"
-        }
-      }),
+      body: JSON.stringify(requestBody),
       signal: AbortSignal.timeout(8000),
     });
 
     if (!response.ok) {
-      throw new Error(`Gemini API Error: ${response.status}`);
+      const errorText = await response.text();
+      console.error(`Gemini API Error (${response.status}):`, errorText);
+      throw new Error(`Gemini API Error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
