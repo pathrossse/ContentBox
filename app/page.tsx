@@ -55,9 +55,20 @@ export default function Home() {
     return String(content);
   };
 
+  function isValidUrl(input: string): boolean {
+    const clean = input.replace(/^https?:\/\//, '').trim();
+    return /^[a-zA-Z0-9][a-zA-Z0-9-]*\.[a-zA-Z]{2,}(\/.*)?$/.test(clean);
+  }
+
   // STEP 1: Analyze & Extract Insights
   const handleAnalyze = async () => {
     if (!sourceInput.trim()) return;
+    
+    if (!isValidUrl(sourceInput)) {
+      alert("Invalid input! Please enter a valid URL (e.g., google.com or https://apple.com)");
+      return;
+    }
+
     setAppState('analyzing');
     try {
       const res = await fetch('/api/analyze', {
