@@ -13,7 +13,7 @@ export async function generateContent(insights: any, retryCount = 0): Promise<Ge
   const endpoint = "https://api.groq.com/openai/v1/chat/completions";
 
   // Model selection with fallback logic
-  const model = retryCount > 0 ? "llama-3.1-8b-instant" : "llama-3.1-70b-versatile";
+  const model = retryCount > 0 ? "llama-3.1-8b-instant" : "llama-3.3-70b-versatile";
 
   const systemInstructions = "You are a master social media strategist. Generate formatted, high-quality content from the provided JSON insights. Return strict JSON with fields: blog_post (Markdown), social_thread (array of 3 posts), email_teaser (Markdown).";
   

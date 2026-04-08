@@ -15,7 +15,7 @@ export async function extractInsights(rawText: string): Promise<ExtractorInsight
   const userPrompt = `SOURCE CONTENT:\n${rawText}`;
 
   const requestBody = {
-    model: "llama-3.1-70b-versatile",
+    model: "llama-3.3-70b-versatile",
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt }
