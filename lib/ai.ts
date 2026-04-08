@@ -11,53 +11,66 @@ export interface GenerationResponse {
   blog_post: string;
   social_thread: string[];
   email_teaser: string;
+  status?: string;
+  word_counts: {
+    blog: number;
+    social: number;
+  };
 }
 
-// PHASE 1: Scrape & Extract Insights
+// PHASE 1: Scrape & Deep-Mining Extraction
 export async function runExtractionPipeline(url: string): Promise<ExtractionResponse> {
   console.time("extraction-total");
 
-  // 1. SCRAPE
-  console.time("scrape");
   const rawText = await scrapeUrl(url);
-  console.timeEnd("scrape");
-
-  // 2. GROQ EXTRACTION
-  console.time("groq-extract");
   const insights = await extractInsights(rawText);
-  console.timeEnd("groq-extract");
 
   console.timeEnd("extraction-total");
 
+  // Format a dense, structured Fact-Sheet
+  let factSheetMd = `${insights.summary}\n\n`;
+  
+  const sections = [
+    { label: "Technical Specs", data: insights.keyFacts.technical_specs },
+    { label: "Direct Quotes", data: insights.keyFacts.direct_quotes },
+    { label: "Data & Statistics", data: insights.keyFacts.statistics },
+    { label: "Stakeholder Perspectives", data: insights.keyFacts.stakeholder_perspectives },
+    { label: "Counter Arguments", data: insights.keyFacts.counter_arguments },
+  ];
+
+  sections.forEach(sec => {
+    if (sec.data && sec.data.length > 0) {
+      factSheetMd += `### ${sec.label}\n${sec.data.map(p => `- ${p}`).join('\n')}\n\n`;
+    }
+  });
+
   return {
-    fact_sheet: insights.summary + "\n\n### Key Facts\n" + insights.keyPoints.map(p => `- ${p}`).join("\n"),
+    fact_sheet: factSheetMd.trim(),
     ambiguity_flags: [
-      `Tone: ${insights.tone}`,
-      `Target: ${insights.targetAudience}`,
-      `Topic: ${insights.mainTopic}`
+      `Source Depth: ${insights.summary.length > 100 ? 'High' : 'Low'}`,
+      `Tone Style: ${insights.metadata.tone}`,
+      `Audience Fit: ${insights.metadata.targetAudience}`
     ]
   };
 }
 
-// PHASE 2: Final Content Generation (Human-Reviewed)
+// PHASE 2: High-Authority Generation
 export async function runGenerationPipeline(factSheet: string): Promise<GenerationResponse> {
   console.time("generation-total");
 
-  // We wrap the factSheet in a minimal insights structure for the generator
-  const mockedInsights = {
-    summary: factSheet,
-    keyPoints: [],
-    tone: "professional (reviewed)",
-    targetAudience: "general (reviewed)",
-    mainTopic: "reviewed source"
-  };
-
-  const content = await generateContent(mockedInsights);
+  // We pass the entire factSheet string as the source of truth
+  const content = await generateContent({ background: factSheet });
+  
   console.timeEnd("generation-total");
 
   return {
     blog_post: content.blog_post,
     social_thread: content.social_thread,
-    email_teaser: content.email_teaser
+    email_teaser: content.email_teaser,
+    status: content.status,
+    word_counts: {
+      blog: content.blog_post.split(/\s+/).length,
+      social: content.social_thread.length
+    }
   };
 }

@@ -2,6 +2,7 @@ export interface GeneratorOutput {
   blog_post: string;
   social_thread: string[];
   email_teaser: string;
+  status?: "complete" | "incomplete";
 }
 
 async function delay(ms: number) {
@@ -12,25 +13,28 @@ export async function generateContent(insights: any, retryCount = 0): Promise<Ge
   const GROQ_API_KEY = process.env.GROQ_API_KEY;
   const endpoint = "https://api.groq.com/openai/v1/chat/completions";
 
-  // Model selection with fallback logic
   const model = retryCount > 0 ? "llama-3.1-8b-instant" : "llama-3.3-70b-versatile";
 
-  const systemInstructions = `You are an Expert Content Marketer with a persuasive and engaging tone. Generate formatted, high-quality content from the provided JSON insights. 
-  Output strict JSON with these fields:
-  - blog_post: A comprehensive Markdown blog post.
-  - social_thread: An array of 3 strings. Angle 1: The Problem. Angle 2: The Solution. Angle 3: The Result/Benefit.
-  - email_teaser: A persuasive email (150-200 words). Must include a catchy Subject Line, a personalized hook, 3 bullet points of value, and a strong Call to Action.`;
+  const systemInstructions = `You are an Expert Content Marketer. Use the provided high-density insights to generate authoritative content.
+  Output strict JSON:
+  - blog_post: A deep, long-form SEO blog post (Target: 1,500 words). Use H1, H2, H3. Include intro, technical analysis, data interpretation, and conclusion.
+  - social_thread: 8-12 comprehensive tweets following a Problem-Solution-Result arc.
+  - email_teaser: A sharp, CTR-focused hook (3-5 lines max).
+  - status: "complete"`;
   
   const prompt = `
-    INSIGHTS DATA:
+    DENSE INSIGHTS:
     ${JSON.stringify(insights, null, 2)}
     
-    TASK: Generate formatted content. Use platform-specific hashtags for social posts. 
-    IMPORTANT: 
-    - Email teaser MUST be between 150-200 words.
-    - social_thread MUST be an array of simple strings, NOT objects.
-    - Tone must be persuasive, engaging, and authoritative.
+    TASK: Generate high-authority content. 
+    CONSTRAINTS: 
+    - Blog MUST be detailed and approximately 1,500 words.
+    - Social thread must be exactly 8-12 strings.
+    - Email must be concise (3-5 lines).
   `;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s Safety Cutoff
 
   try {
     const response = await fetch(endpoint, {
@@ -46,16 +50,17 @@ export async function generateContent(insights: any, retryCount = 0): Promise<Ge
           { role: "user", content: prompt }
         ],
         temperature: 0.7,
-        max_tokens: 2048,
+        max_tokens: 6000, 
         response_format: { type: "json_object" }
       }),
-      signal: AbortSignal.timeout(12000),
+      signal: controller.signal,
     });
 
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
-      if (retryCount < 1 && response.status === 429) {
-        console.warn(`Groq 70b Rate Limited (429). Retrying with 8b...`);
-        await delay(500);
+      if (retryCount < 1 && (response.status === 429 || response.status === 503)) {
+        console.warn(`Groq limit hit. Retrying with 8b...`);
         return generateContent(insights, retryCount + 1);
       }
       const errorText = await response.text();
@@ -67,15 +72,25 @@ export async function generateContent(insights: any, retryCount = 0): Promise<Ge
     
     if (!resultText) throw new Error("Empty response from Groq Generator");
 
-    return JSON.parse(resultText) as GeneratorOutput;
+    return { ...JSON.parse(resultText), status: "complete" } as GeneratorOutput;
 
   } catch (error: any) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      console.warn("Generation timed out at 8s. Returning safety partial.");
+      return {
+        blog_post: "Content generation exceeded 8s timeout. Please try with shorter source content.",
+        social_thread: ["Timeout - partial generation unavailable"],
+        email_teaser: "Timeout - partial generation unavailable",
+        status: "incomplete"
+      };
+    }
+
     if (retryCount < 1) {
-       console.warn("Groq Generation Error, attempting fallback:", error.message);
-       await delay(500);
+       console.warn("Generation Error, attempting 8b fallback:", error.message);
        return generateContent(insights, retryCount + 1);
     }
-    console.error("Groq Generation Service failed:", error.message);
     throw new Error(`Generation failed: ${error.message}`);
   }
 }
