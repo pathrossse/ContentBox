@@ -8,7 +8,7 @@ type GUIState = 'idle' | 'analyzing' | 'finished';
 
 interface GenerationData {
   blog_post: string;
-  social_thread: string;
+  social_thread: string | string[];
   email_teaser: string;
 }
 
@@ -20,6 +20,12 @@ export default function Home() {
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [ambiguityFlags, setAmbiguityFlags] = useState<string[]>([]);
   const [results, setResults] = useState<GenerationData | null>(null);
+
+  const formatContent = (content: any) => {
+    if (Array.isArray(content)) return content.join('\n\n');
+    if (typeof content === 'string') return content.replace(/\\n/g, '\n');
+    return '';
+  };
 
   const handleAnalyze = async () => {
     if (!sourceInput.trim()) return;
@@ -50,8 +56,8 @@ export default function Home() {
     }
   };
 
-  const copyToClipboard = (text: string, id: number) => {
-    navigator.clipboard.writeText(text);
+  const copyToClipboard = (text: any, id: number) => {
+    navigator.clipboard.writeText(formatContent(text));
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
@@ -105,7 +111,7 @@ export default function Home() {
               {previewMode ? (
                 <div className="md-editor markdown-rendered prose prose-invert max-w-none" style={{ overflowY: 'auto' }}>
                   <ReactMarkdown>
-                    {factSheet ? factSheet.replace(/\\n/g, '\n') : "No content generated yet."}
+                    {formatContent(factSheet) || "No content generated yet."}
                   </ReactMarkdown>
                 </div>
               ) : (
@@ -155,7 +161,7 @@ export default function Home() {
                   </div>
                   <div className="bento-content markdown-rendered prose prose-invert max-w-none">
                     <ReactMarkdown>
-                      {item.content ? item.content.replace(/\\n/g, '\n') : ""}
+                      {formatContent(item.content)}
                     </ReactMarkdown>
                   </div>
                 </div>
