@@ -23,16 +23,24 @@ export default function Home() {
 
   const formatContent = (content: any): string => {
     if (!content) return '';
+    
+    // Handle Arrays
     if (Array.isArray(content)) {
-      return content.map(item => {
-        if (typeof item === 'string') return item;
-        if (typeof item === 'object' && item !== null) {
-          // Attempt to find any string property (e.g., item.post, item.text, etc.)
-          return Object.values(item).find(v => typeof v === 'string') || JSON.stringify(item);
-        }
-        return String(item);
-      }).join('\n\n');
+      return content.map(item => formatContent(item)).join('\n\n');
     }
+
+    // Handle Objects
+    if (typeof content === 'object' && content !== null) {
+      // Concatenate all string values found in the object
+      return Object.entries(content)
+        .map(([key, value]) => {
+          const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+          return `**${label}**: ${formatContent(value)}`;
+        })
+        .join('\n\n');
+    }
+
+    // Handle Strings & Others
     if (typeof content === 'string') return content.replace(/\\n/g, '\n');
     return String(content);
   };
