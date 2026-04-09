@@ -13,20 +13,40 @@ export async function generateContent(insights: any, retryCount = 0, correctionN
 
   const model = retryCount > 0 ? "llama-3.1-8b-instant" : "llama-3.3-70b-versatile";
 
-  // Parallel chunked generation - each under 2000 tokens
-  const [blogRes, socialRes, emailRes] = await Promise.allSettled([
-    generateChunk(endpoint, GROQ_API_KEY, model, 'blog', insights, correctionNotes, retryCount),
-    generateChunk(endpoint, GROQ_API_KEY, model, 'social', insights, correctionNotes, retryCount),
-    generateChunk(endpoint, GROQ_API_KEY, model, 'email', insights, correctionNotes, retryCount)
-  ]);
+  // Sequential chunked generation to avoid bursting Groq's instantaneous 6000 TPM limit
+  let blogVal: any = "Generation failed";
+  let socialVal: any = ["Generation failed"];
+  let emailVal: any = "Generation failed";
+
+  try {
+    const b = await generateChunk(endpoint, GROQ_API_KEY, model, 'blog', insights, correctionNotes, retryCount);
+    if (b) blogVal = b;
+  } catch (e) {
+    console.warn("Blog generation chunk failed.");
+  }
+
+  try {
+    const s = await generateChunk(endpoint, GROQ_API_KEY, model, 'social', insights, correctionNotes, retryCount);
+    if (s && Array.isArray(s)) socialVal = s;
+    else if (s) socialVal = [String(s)];
+  } catch (e) {
+    console.warn("Social generation chunk failed.");
+  }
+
+  try {
+    const em = await generateChunk(endpoint, GROQ_API_KEY, model, 'email', insights, correctionNotes, retryCount);
+    if (em) emailVal = String(em);
+  } catch (e) {
+    console.warn("Email generation chunk failed.");
+  }
+
+  const isComplete = blogVal !== "Generation failed" && socialVal[0] !== "Generation failed" && emailVal !== "Generation failed";
 
   return {
-    blog_post: blogRes.status === 'fulfilled' ? blogRes.value : "Generation failed",
-    social_thread: socialRes.status === 'fulfilled' ? socialRes.value : ["Generation failed"],
-    email_teaser: emailRes.status === 'fulfilled' ? emailRes.value : "Generation failed",
-    status: (blogRes.status === 'fulfilled' && socialRes.status === 'fulfilled' && emailRes.status === 'fulfilled') 
-      ? "complete" 
-      : "incomplete"
+    blog_post: String(blogVal),
+    social_thread: Array.isArray(socialVal) ? socialVal : [String(socialVal)],
+    email_teaser: String(emailVal),
+    status: isComplete ? "complete" : "incomplete"
   };
 }
 
