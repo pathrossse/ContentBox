@@ -1,12 +1,6 @@
 export interface ExtractorInsights {
   summary: string;
-  keyFacts: {
-    technical_specs: string[];
-    direct_quotes: string[];
-    statistics: string[];
-    stakeholder_perspectives: string[];
-    counter_arguments: string[];
-  };
+  keyFacts: string[];
   metadata: {
     tone: string;
     targetAudience: string;
@@ -18,12 +12,11 @@ export async function extractInsights(rawText: string): Promise<ExtractorInsight
   const GROQ_API_KEY = process.env.GROQ_API_KEY;
   const endpoint = "https://api.groq.com/openai/v1/chat/completions";
 
-  const systemPrompt = `You are a high-density data extractor. Extract 15-20 granular data points from the content. You must return strict JSON only. 
+  const systemPrompt = `You are a high-density data extractor. Extract 8-10 key data points from the content. You must return strict JSON only. 
   Fields:
   - summary: 2-3 sentences.
-  - keyFacts: { technical_specs: [], direct_quotes: [], statistics: [], stakeholder_perspectives: [], counter_arguments: [] }
-  - metadata: { tone, targetAudience, mainTopic }
-  Ensure extraction is dense and specific.`;
+  - keyFacts: ["fact 1", "fact 2", ...] (Provide 5-7 core facts)
+  - metadata: { tone, targetAudience, mainTopic }`;
   
   const userPrompt = `SOURCE CONTENT:\n${rawText}`;
 
@@ -63,13 +56,7 @@ export async function extractInsights(rawText: string): Promise<ExtractorInsight
     console.warn("Groq Extraction Failed, using Minimal Fallback:", error.message);
     return {
       summary: "Manual extraction required due to system timeout.",
-      keyFacts: {
-        technical_specs: ["Detection failed"],
-        direct_quotes: [],
-        statistics: [],
-        stakeholder_perspectives: [],
-        counter_arguments: []
-      },
+      keyFacts: ["Detection failed"],
       metadata: { tone: "Neutral", targetAudience: "General", mainTopic: "Content Analysis" }
     };
   }
