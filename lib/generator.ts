@@ -7,35 +7,64 @@ export interface GeneratorOutput {
   qc_feedback?: string;
 }
 
-async function delay(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 export async function generateContent(insights: any, retryCount = 0, correctionNotes?: string): Promise<GeneratorOutput> {
   const GROQ_API_KEY = process.env.GROQ_API_KEY;
   const endpoint = "https://api.groq.com/openai/v1/chat/completions";
 
   const model = retryCount > 0 ? "llama-3.1-8b-instant" : "llama-3.3-70b-versatile";
 
+  // Parallel chunked generation - each under 2000 tokens
+  const [blogRes, socialRes, emailRes] = await Promise.allSettled([
+    generateChunk(endpoint, GROQ_API_KEY, model, 'blog', insights, correctionNotes, retryCount),
+    generateChunk(endpoint, GROQ_API_KEY, model, 'social', insights, correctionNotes, retryCount),
+    generateChunk(endpoint, GROQ_API_KEY, model, 'email', insights, correctionNotes, retryCount)
+  ]);
+
+  return {
+    blog_post: blogRes.status === 'fulfilled' ? blogRes.value : "Generation failed",
+    social_thread: socialRes.status === 'fulfilled' ? socialRes.value : ["Generation failed"],
+    email_teaser: emailRes.status === 'fulfilled' ? emailRes.value : "Generation failed",
+    status: (blogRes.status === 'fulfilled' && socialRes.status === 'fulfilled' && emailRes.status === 'fulfilled') 
+      ? "complete" 
+      : "incomplete"
+  };
+}
+
+async function generateChunk(endpoint: string, apiKey: string | undefined, model: string, type: 'blog' | 'social' | 'email', insights: any, correctionNotes?: string, retryCount = 0): Promise<any> {
+  const configs = {
+    blog: { 
+      max_tokens: 2000, 
+      extract: (r: any) => r.blog_post,
+      prompt: `Output strict JSON with ONE field:
+      - blog_post: A deep, long-form SEO blog post in Markdown format. IMPORTANT: Use ONLY Markdown (##, ###, etc.) and NO HTML tags.`
+    },
+    social: { 
+      max_tokens: 1500, 
+      extract: (r: any) => r.social_thread,
+      prompt: `Output strict JSON with ONE field:
+      - social_thread: An array of 5-10 virality-focused tweets. Angle 1: Hook/Problem. Middle: Deep Value. End: Result/Call-to-Action. Each string MUST be under 200 characters.`
+    },
+    email: { 
+      max_tokens: 1500, 
+      extract: (r: any) => r.email_teaser,
+      prompt: `Output strict JSON with ONE field:
+      - email_teaser: A CTR-focused teaser (50-150 words). Format: 1 sentence hook, followed by 3 bullet points of value, then a CTA. Include a "subject" field inside this object or as part of the text.`
+    }
+  };
+
+  const config = configs[type];
+
   const systemInstructions = `You are an Expert Content Marketer with a persuasive and engaging tone. Generate formatted, high-quality content from the provided JSON insights. 
   ${correctionNotes ? `CRITICAL CORRECTIONS TO IMPLEMENT: ${correctionNotes}` : ""}
   STRICT RULE: Strictly follow the user-edited facts provided below. Ignore the initial scraped data if it contradicts this updated sheet. The provided insights are your SOLE source of truth.
 
-  Output strict JSON with these fields:
-  - blog_post: A deep, long-form SEO blog post in Markdown format. IMPORTANT: Use ONLY Markdown (##, ###, etc.) and NO HTML tags.
-  - social_thread: An array of 5-10 virality-focused tweets. Angle 1: Hook/Problem. Middle: Deep Value. End: Result/Call-to-Action.
-  - email_teaser: A CTR-focused teaser (50-150 words). Format: 1 sentence hook, followed by 3 bullet points of value, then a CTA. Include a "subject" field inside this object or as part of the text.
-  - status: "complete"`;
+  ${config.prompt}`;
   
   const prompt = `
     DENSE INSIGHTS:
     ${JSON.stringify(insights, null, 2)}
     
-    TASK: Generate high-authority content. 
-    CONSTRAINTS: 
-    - Blog: Strictly Markdown, No HTML tags. Proper professional language.
-    - Social: 5-10 strings, each string MUST be under 200 characters. 
-    - Email: 50-150 words total. Subject line MUST be under 40 words. Use 1 hook sentence + 3 bullets.
+    TASK: Generate high-authority ${type} content based solely on the insights above.
   `;
 
   const controller = new AbortController();
@@ -45,7 +74,7 @@ export async function generateContent(insights: any, retryCount = 0, correctionN
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${GROQ_API_KEY}`,
+        "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
@@ -55,7 +84,7 @@ export async function generateContent(insights: any, retryCount = 0, correctionN
           { role: "user", content: prompt }
         ],
         temperature: 0.7,
-        max_tokens: 6000, 
+        max_tokens: config.max_tokens, 
         response_format: { type: "json_object" }
       }),
       signal: controller.signal,
@@ -65,8 +94,8 @@ export async function generateContent(insights: any, retryCount = 0, correctionN
 
     if (!response.ok) {
       if (retryCount < 1 && (response.status === 429 || response.status === 503)) {
-        console.warn(`Groq limit hit. Retrying with 8b...`);
-        return generateContent(insights, retryCount + 1, correctionNotes);
+        console.warn(`Groq limit hit for ${type}. Retrying with 8b...`);
+        return generateChunk(endpoint, apiKey, "llama-3.1-8b-instant", type, insights, correctionNotes, retryCount + 1);
       }
       const errorText = await response.text();
       throw new Error(`Groq API Error: ${response.status} - ${errorText}`);
@@ -77,25 +106,21 @@ export async function generateContent(insights: any, retryCount = 0, correctionN
     
     if (!resultText) throw new Error("Empty response from Groq Generator");
 
-    return { ...JSON.parse(resultText), status: "complete" } as GeneratorOutput;
+    const parsed = JSON.parse(resultText);
+    return config.extract(parsed);
 
   } catch (error: any) {
     clearTimeout(timeoutId);
     
     if (error.name === 'AbortError') {
-      console.warn("Generation timed out at 8s. Returning safety partial.");
-      return {
-        blog_post: "Content generation exceeded 8s timeout. Please try with shorter source content.",
-        social_thread: ["Timeout - partial generation unavailable"],
-        email_teaser: "Timeout - partial generation unavailable",
-        status: "incomplete"
-      };
+      console.warn(`Generation timed out at 8s for ${type}.`);
+      throw new Error("Timeout");
     }
 
     if (retryCount < 1) {
-       console.warn("Generation Error, attempting 8b fallback:", error.message);
-       return generateContent(insights, retryCount + 1);
+       console.warn(`Generation Error for ${type}, attempting 8b fallback:`, error.message);
+       return generateChunk(endpoint, apiKey, "llama-3.1-8b-instant", type, insights, correctionNotes, retryCount + 1);
     }
-    throw new Error(`Generation failed: ${error.message}`);
+    throw error;
   }
 }
