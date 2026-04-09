@@ -3,19 +3,22 @@ export interface GeneratorOutput {
   social_thread: string[];
   email_teaser: string;
   status?: "complete" | "incomplete";
+  qc_verified?: boolean;
+  qc_feedback?: string;
 }
 
 async function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export async function generateContent(insights: any, retryCount = 0): Promise<GeneratorOutput> {
+export async function generateContent(insights: any, retryCount = 0, correctionNotes?: string): Promise<GeneratorOutput> {
   const GROQ_API_KEY = process.env.GROQ_API_KEY;
   const endpoint = "https://api.groq.com/openai/v1/chat/completions";
 
   const model = retryCount > 0 ? "llama-3.1-8b-instant" : "llama-3.3-70b-versatile";
 
   const systemInstructions = `You are an Expert Content Marketer with a persuasive and engaging tone. Generate formatted, high-quality content from the provided JSON insights. 
+  ${correctionNotes ? `CRITICAL CORRECTIONS TO IMPLEMENT: ${correctionNotes}` : ""}
   STRICT RULE: Strictly follow the user-edited facts provided below. Ignore the initial scraped data if it contradicts this updated sheet. The provided insights are your SOLE source of truth.
 
   Output strict JSON with these fields:
@@ -63,7 +66,7 @@ export async function generateContent(insights: any, retryCount = 0): Promise<Ge
     if (!response.ok) {
       if (retryCount < 1 && (response.status === 429 || response.status === 503)) {
         console.warn(`Groq limit hit. Retrying with 8b...`);
-        return generateContent(insights, retryCount + 1);
+        return generateContent(insights, retryCount + 1, correctionNotes);
       }
       const errorText = await response.text();
       throw new Error(`Groq API Error: ${response.status} - ${errorText}`);

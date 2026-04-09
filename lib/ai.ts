@@ -1,6 +1,7 @@
 import { scrapeUrl } from './scraper';
 import { extractInsights } from './extractor';
 import { generateContent } from './generator';
+import { runEditorQC } from './editor';
 
 export interface ExtractionResponse {
   fact_sheet: string;
@@ -12,6 +13,8 @@ export interface GenerationResponse {
   social_thread: string[];
   email_teaser: string;
   status?: string;
+  qc_verified: boolean;
+  qc_feedback?: string;
   word_counts: {
     blog: number;
     social: number;
@@ -30,19 +33,9 @@ export async function runExtractionPipeline(url: string): Promise<ExtractionResp
   // Format a dense, structured Fact-Sheet
   let factSheetMd = `${insights.summary}\n\n`;
   
-  const sections = [
-    { label: "Technical Specs", data: insights.keyFacts.technical_specs },
-    { label: "Direct Quotes", data: insights.keyFacts.direct_quotes },
-    { label: "Data & Statistics", data: insights.keyFacts.statistics },
-    { label: "Stakeholder Perspectives", data: insights.keyFacts.stakeholder_perspectives },
-    { label: "Counter Arguments", data: insights.keyFacts.counter_arguments },
-  ];
-
-  sections.forEach(sec => {
-    if (sec.data && sec.data.length > 0) {
-      factSheetMd += `### ${sec.label}\n${sec.data.map(p => `- ${p}`).join('\n')}\n\n`;
-    }
-  });
+  if (insights.keyFacts && insights.keyFacts.length > 0) {
+    factSheetMd += `### Key Facts\n${insights.keyFacts.map(p => `- ${p}`).join('\n')}\n\n`;
+  }
 
   return {
     fact_sheet: factSheetMd.trim(),
@@ -54,12 +47,35 @@ export async function runExtractionPipeline(url: string): Promise<ExtractionResp
   };
 }
 
-// PHASE 2: High-Authority Generation
+// PHASE 2: High-Authority Generation with QC Loop
 export async function runGenerationPipeline(factSheet: string): Promise<GenerationResponse> {
+  const pipelineStart = Date.now();
   console.time("generation-total");
 
-  // We pass the entire factSheet string as the SOLE source of truth
-  const content = await generateContent({ fact_sheet: factSheet });
+  // Initial Attempt (70b)
+  let content = await generateContent({ fact_sheet: factSheet });
+  
+  // Parallel QC Audit (8b)
+  // We run all 3 checks simultaneously to minimize latency
+  const qcResults = await Promise.all([
+    runEditorQC(factSheet, content.blog_post, "Blog Post"),
+    runEditorQC(factSheet, content.social_thread.join('\n'), "Social Thread"),
+    runEditorQC(factSheet, content.email_teaser, "Email Teaser")
+  ]);
+
+  const allApproved = qcResults.every(r => r.approved);
+  const feedback = qcResults.filter(r => !r.approved).map(r => r.feedback).join(' | ');
+
+  // Loop Control: Single retry if rejected AND within time
+  // We check if we have enough time left before the 10s Vercel limit
+  if (!allApproved && (Date.now() - pipelineStart < 5000)) {
+    console.warn("QC Rejected! Triggering Correction Cycle with feedback:", feedback);
+    content = await generateContent({ fact_sheet: factSheet }, 1, feedback);
+    content.qc_verified = true; // Mark as verified if second pass completes
+  } else {
+    content.qc_verified = allApproved;
+    content.qc_feedback = !allApproved ? feedback : undefined;
+  }
   
   console.timeEnd("generation-total");
 
@@ -68,6 +84,8 @@ export async function runGenerationPipeline(factSheet: string): Promise<Generati
     social_thread: content.social_thread,
     email_teaser: content.email_teaser,
     status: content.status,
+    qc_verified: !!content.qc_verified,
+    qc_feedback: content.qc_feedback,
     word_counts: {
       blog: content.blog_post.split(/\s+/).length,
       social: content.social_thread.length

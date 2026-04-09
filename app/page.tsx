@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { Bot, CheckCircle, FileText, AlertTriangle, Copy, Loader2, Edit3, Eye, Zap, History, X, Trash2, Download, Clock, ExternalLink, ChevronRight } from 'lucide-react';
+import { Bot, CheckCircle, FileText, AlertTriangle, Copy, Loader2, Edit3, Eye, Zap, History, X, Trash2, Download, Clock, ExternalLink, ChevronRight, ShieldCheck, HelpCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 type GUIState = 'idle' | 'analyzing' | 'verifying' | 'generating' | 'finished';
@@ -10,6 +10,8 @@ interface GenerationData {
   blog_post: string;
   social_thread: string | string[];
   email_teaser: string;
+  qc_verified?: boolean;
+  qc_feedback?: string;
 }
 
 interface Session {
@@ -20,6 +22,7 @@ interface Session {
   factSheet: string;
   results: GenerationData | null;
   ambiguityFlags: string[];
+  qc_verified?: boolean;
 }
 
 export default function Home() {
@@ -378,7 +381,25 @@ export default function Home() {
               ].map((item, id) => (
                 <div className="bento-card glass" key={id}>
                   <div className="bento-header">
-                    <span className="bento-title">{item.title}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="bento-title">{item.title}</span>
+                      {results.qc_verified ? (
+                        <div className="group relative">
+                          <ShieldCheck size={18} className="text-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)] cursor-help" />
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-[#1a1a1a] border border-green-500/30 rounded text-[10px] text-green-400 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                            Editor-in-Chief: Verified Accurate
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="group relative">
+                          <AlertTriangle size={18} className="text-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.4)] cursor-help" />
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-3 bg-[#1a1a1a] border border-amber-500/30 rounded text-[10px] text-amber-500 w-48 leading-tight opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                            <p className="font-bold mb-1">QC Warning:</p>
+                            {results.qc_feedback || "Potential discrepancy detected. Manual check advised."}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     <button className="copy-btn transition-all duration-200" onClick={() => copyToClipboard(item.content, id)}>
                       {copiedId === id ? (
                         <span className="flex items-center gap-1 text-green-500 text-sm font-medium animate-in fade-in zoom-in duration-300">
