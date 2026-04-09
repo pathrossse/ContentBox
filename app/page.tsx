@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { Bot, CheckCircle, FileText, AlertTriangle, Copy, Loader2, Edit3, Eye, Zap, History, X, Trash2, Download, Clock, ExternalLink, ChevronRight, ShieldCheck, HelpCircle } from 'lucide-react';
+import { Bot, CheckCircle, FileText, AlertTriangle, Copy, Loader2, Edit3, Zap, History, X, Trash2, Download, Clock, ExternalLink, ChevronRight, ShieldCheck, ChevronDown, ChevronUp, Package } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { motion, AnimatePresence } from 'framer-motion';
+import { generateCampaignZip } from '../lib/zipper';
 
 type GUIState = 'idle' | 'analyzing' | 'verifying' | 'generating' | 'finished';
 
@@ -31,11 +33,14 @@ export default function Home() {
   const [factSheet, setFactSheet] = useState('');
   const [previewMode, setPreviewMode] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isFactSheetOpen, setIsFactSheetOpen] = useState(true);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [history, setHistory] = useState<Session[]>([]);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [ambiguityFlags, setAmbiguityFlags] = useState<string[]>([]);
   const [results, setResults] = useState<GenerationData | null>(null);
+  const [activityLog, setActivityLog] = useState<{message: string, time: number}[]>([]);
+  const [elapsedTime, setElapsedTime] = useState(0);
 
   // HYDRATION: Load History & Active Session
   useEffect(() => {
@@ -160,6 +165,19 @@ export default function Home() {
   // STEP 2: Confirm & Generate Final Content
   const handleGenerate = async () => {
     setAppState('generating');
+    setActivityLog([{message: "Copywriter is drafting base assets...", time: 0}]);
+    
+    const startTime = Date.now();
+    const timerId = setInterval(() => {
+      setElapsedTime(Number(((Date.now() - startTime) / 1000).toFixed(1)));
+    }, 100);
+
+    const timeouts = [
+      setTimeout(() => setActivityLog(prev => [...prev, {message: "Parallel QC initiated by Editor-in-Chief...", time: Number(((Date.now() - startTime) / 1000).toFixed(1))}]), 2500),
+      setTimeout(() => setActivityLog(prev => [...prev, {message: "Checking for hallucinations against Fact-Sheet...", time: Number(((Date.now() - startTime) / 1000).toFixed(1))}]), 4500),
+      setTimeout(() => setActivityLog(prev => [...prev, {message: "Tone audit in progress...", time: Number(((Date.now() - startTime) / 1000).toFixed(1))}]), 6500)
+    ];
+
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
@@ -176,6 +194,12 @@ export default function Home() {
     } catch (err: any) {
       alert(err.message);
       setAppState('verifying');
+    } finally {
+      clearInterval(timerId);
+      timeouts.forEach(clearTimeout);
+      setActivityLog([]);
+      setElapsedTime(0);
+      setIsFactSheetOpen(false); // Auto close fact-sheet on mobile after generation
     }
   };
 
@@ -307,37 +331,62 @@ export default function Home() {
           </button>
         </section>
 
-      {/* VERIFICATION GATE - Phase 1 */}
+      {/* VERIFICATION GATE & DASHBOARD */}
       {(appState === 'verifying' || appState === 'generating' || appState === 'finished') && (
-        <section className="fade-in">
-          <div className="gate-container fade-in">
-            <div className="gate-panel glass">
-              <div className="bento-header">
-                <h3 className="gate-title"><FileText size={18} /> Fact-Sheet Review</h3>
-                <button 
-                  className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all"
-                  onClick={() => setIsEditing(!isEditing)}
-                >
-                  {isEditing ? 'Save & Preview' : 'Edit Facts'}
-                </button>
+        <section className={`w-full max-w-[1400px] mx-auto px-6 fade-in ${appState === 'finished' ? 'flex flex-col lg:grid lg:grid-cols-[40%_60%] gap-8 items-start' : 'max-w-4xl'}`}>
+          <div className={`gate-container fade-in ${appState === 'finished' ? 'lg:sticky lg:top-8 w-full' : 'w-full'}`}>
+            <div className="gate-panel glass relative overflow-hidden">
+              <div 
+                className={`bento-header ${appState === 'finished' ? 'cursor-pointer lg:cursor-auto' : ''}`} 
+                onClick={() => appState === 'finished' && setIsFactSheetOpen(!isFactSheetOpen)}
+              >
+                <h3 className="gate-title flex items-center gap-2"><FileText size={18} /> Fact-Sheet Review</h3>
+                <div className="flex items-center gap-2">
+                  {appState === 'verifying' && (
+                    <button 
+                      className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                      onClick={(e) => { e.stopPropagation(); setIsEditing(!isEditing); }}
+                    >
+                      {isEditing ? 'Save & Preview' : 'Edit Facts'}
+                    </button>
+                  )}
+                  {appState === 'finished' && (
+                    <span className="lg:hidden text-white/50 bg-white/5 hover:bg-white/10 p-1 rounded transition-colors">
+                      {isFactSheetOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    </span>
+                  )}
+                </div>
               </div>
               
-              {isEditing ? (
-                <textarea 
-                  className="md-editor w-full h-[400px] mt-4"
-                  value={factSheet}
-                  onChange={(e) => setFactSheet(e.target.value)}
-                  placeholder="Review and refine the extracted facts here..."
-                />
-              ) : (
-                <div className="md-editor mt-4 markdown-rendered overflow-y-auto h-[400px]">
-                  <ReactMarkdown>{factSheet}</ReactMarkdown>
-                </div>
-              )}
+              <AnimatePresence initial={false}>
+                {(!isFactSheetOpen && appState === 'finished') ? null : (
+                    <motion.div 
+                      key="fact-sheet-content"
+                      initial={appState === 'finished' ? { height: 0, opacity: 0 } : false} 
+                      animate={{ height: 'auto', opacity: 1 }} 
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="overflow-hidden"
+                    >
+                      {isEditing ? (
+                        <textarea 
+                          className="md-editor w-full h-[400px] mt-4 p-2 custom-scrollbar"
+                          value={factSheet}
+                          onChange={(e) => setFactSheet(e.target.value)}
+                          placeholder="Review and refine the extracted facts here..."
+                        />
+                      ) : (
+                        <div className={`md-editor mt-4 markdown-rendered overflow-y-auto custom-scrollbar ${appState === 'finished' ? 'max-h-[60vh] pr-2' : 'h-[400px]'}`}>
+                          <ReactMarkdown>{factSheet}</ReactMarkdown>
+                        </div>
+                      )}
+                    </motion.div>
+                )}
+              </AnimatePresence>
             </div>
             
             {/* Ambiguity Flags */}
-            <div className={`glass gate-panel warnings ${appState === 'finished' ? 'opacity-70 grayscale-[0.3]' : ''}`}>
+            <div className={`glass gate-panel warnings mt-4 ${appState === 'finished' ? 'opacity-70 grayscale-[0.3]' : ''}`}>
               <h2 className="gate-title" style={{ color: 'var(--warning-color)' }}><AlertTriangle size={20}/> Ambiguity Flags</h2>
               <ul className="warnings-list">
                 {ambiguityFlags.length === 0 ? (
@@ -349,86 +398,125 @@ export default function Home() {
                 )}
               </ul>
             </div>
+            
+            {/* ACTION ROW - This is the "Confirmation" step between review and final output */}
+            {appState === 'verifying' && (
+              <div className="action-row" style={{ marginTop: '2rem' }}>
+                <button 
+                  className="bg-white text-black border-[3px] border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] rounded-full py-4 px-12 font-bold transition-all flex items-center justify-center gap-2 cursor-pointer" 
+                  onClick={handleGenerate}
+                >
+                  <Zap size={20}/> Confirm & Generate
+                </button>
+              </div>
+            )}
+
+            {/* LIVE ACTIVITY FEED */}
+            {appState === 'generating' && (
+              <div className="w-full mt-6 glass gate-panel overflow-hidden relative shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                <div className="absolute top-0 left-0 w-full h-1 bg-[#1a1a1a]">
+                   <div className="h-full bg-gradient-to-r from-transparent via-[#FFDE59] to-transparent w-full opacity-70 animate-[pulse_1s_ease-in-out_infinite]" />
+                </div>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="gate-title text-[#FFDE59] flex items-center gap-2"><Loader2 size={16} className="animate-spin" /> Campaign Assembly</h3>
+                  <span className="font-mono text-xs text-[#FFDE59] bg-[#FFDE59]/10 border border-[#FFDE59]/20 px-2 py-1 rounded">⏱️ {elapsedTime.toFixed(1)}s</span>
+                </div>
+                <div className="space-y-3 font-mono text-[13px]">
+                  {activityLog.map((log, i) => (
+                    <motion.div 
+                      key={i} 
+                      initial={{ opacity: 0, x: -10 }} 
+                      animate={{ opacity: 1, x: 0 }} 
+                      className={`flex items-start gap-3 p-2 rounded-lg bg-black/20 ${i === activityLog.length - 1 ? 'text-white' : 'text-white/40'}`}
+                    >
+                      <span className="text-[11px] text-white/30 w-10 mt-0.5">{log.time}s</span>
+                      <span className={`w-2 h-2 rounded-full mt-1.5 shadow-[0_0_8px_currentColor] ${i === activityLog.length - 1 ? 'text-green-500 bg-green-500' : 'bg-green-500/30'}`}></span>
+                      <span className="flex-1 leading-snug">{log.message}</span>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* ACTION ROW - This is the "Confirmation" step between review and final output */}
-          {appState === 'verifying' && (
-            <div className="action-row" style={{ marginTop: '2rem' }}>
-              <button 
-                className="bg-white text-black border-[3px] border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] rounded-full py-4 px-12 font-bold transition-all flex items-center justify-center gap-2 cursor-pointer" 
-                onClick={handleGenerate}
-              >
-                <Zap size={20}/> Confirm & Generate
-              </button>
-            </div>
-          )}
-
-          {appState === 'generating' && (
-            <div className="action-row" style={{ marginTop: '2rem' }}>
-              <div className="bg-white text-black border-[3px] border-black translate-x-[2px] translate-y-[2px] rounded-full py-4 px-12 font-bold flex items-center justify-center gap-2 opacity-80 cursor-wait">
-                <Loader2 size={20} className="animate-spin" /> Finalizing Assets...
-              </div>
-            </div>
-          )}
-
-          {/* OUTPUT GALLERY - Phase 2 */}
+          {/* OUTPUT GALLERY (Right Column when lg) */}
           {appState === 'finished' && results && (
-            <section className="gallery-grid fade-in" style={{ marginTop: '2.5rem' }}>
-              {[
-                { title: 'Blog Post', content: results.blog_post },
-                { title: 'Social Media Thread', content: results.social_thread },
-                { title: 'Email Teaser', content: results.email_teaser }
-              ].map((item, id) => (
-                <div className="bento-card glass" key={id}>
-                  <div className="bento-header">
-                    <div className="flex items-center gap-2">
-                      <span className="bento-title">{item.title}</span>
-                      {results.qc_verified ? (
-                        <div className="group relative">
-                          <ShieldCheck size={18} className="text-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)] cursor-help" />
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-[#1a1a1a] border border-green-500/30 rounded text-[10px] text-green-400 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                            Editor-in-Chief: Verified Accurate
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="group relative">
-                          <AlertTriangle size={18} className="text-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.4)] cursor-help" />
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-3 bg-[#1a1a1a] border border-amber-500/30 rounded text-[10px] text-amber-500 w-48 leading-tight opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                            <p className="font-bold mb-1">QC Warning:</p>
-                            {results.qc_feedback || "Potential discrepancy detected. Manual check advised."}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <button className="copy-btn transition-all duration-200" onClick={() => copyToClipboard(item.content, id)}>
-                      {copiedId === id ? (
-                        <span className="flex items-center gap-1 text-green-500 text-sm font-medium animate-in fade-in zoom-in duration-300">
-                          <CheckCircle size={16} /> Copied!
-                        </span>
-                      ) : (
-                        <Copy size={18} className="transition-all hover:scale-110" />
-                      )}
-                    </button>
-                  </div>
-                  <div className="bento-content markdown-rendered prose prose-invert max-w-none">
-                    <ReactMarkdown>
-                      {formatContent(item.content)}
-                    </ReactMarkdown>
-                  </div>
-                </div>
-              ))}
-            </section>
-          )}
+            <div className="w-full flex-1">
+              <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-6">
+                 <div>
+                   <h2 className="text-3xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">Campaign Kit</h2>
+                   <p className="text-white/40 text-sm mt-1 font-medium">Ready for deployment.</p>
+                 </div>
+                 <button 
+                   onClick={() => generateCampaignZip(sourceInput, results)}
+                   className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#FFDE59] text-black hover:bg-white rounded-lg text-sm font-bold shadow-[0_0_15px_rgba(255,222,89,0.3)] transition-all hover:scale-105 active:scale-95"
+                 >
+                   <Package size={16} /> Export Kit (.zip)
+                 </button>
+              </div>
 
-          {/* RESET ACTION */}
-          {appState === 'finished' && (
-            <div className="action-row" style={{ marginTop: '2.5rem' }}>
-              <button 
-                className="bg-white text-black border-[3px] border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] rounded-full py-3 px-8 font-bold transition-all flex items-center justify-center cursor-pointer" 
-                onClick={handleStartNew}
-              >
-                Start New Project
-              </button>
+              <section className="flex flex-col gap-6 w-full pb-10">
+                {[
+                  { title: 'Blog Post', content: results.blog_post, delay: 0.1 },
+                  { title: 'Social Media Thread', content: results.social_thread, delay: 0.2 },
+                  { title: 'Email Teaser', content: results.email_teaser, delay: 0.3 }
+                ].map((item, id) => (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: item.delay, ease: "easeOut" }}
+                    whileHover={{ scale: 1.01 }}
+                    className={`bento-card glass transition-all duration-300 ${results.qc_verified ? 'hover:border-green-500/30 hover:shadow-[0_0_25px_rgba(34,197,94,0.1)]' : 'hover:border-amber-500/30 hover:shadow-[0_0_25px_rgba(245,158,11,0.1)]'}`} 
+                    key={id}
+                  >
+                    <div className="bento-header pb-4 border-b border-white/5">
+                      <div className="flex items-center gap-2">
+                        <span className="bento-title">{item.title}</span>
+                        {results.qc_verified ? (
+                          <div className="group relative">
+                            <ShieldCheck size={18} className="text-green-500 drop-shadow-[0_0_8px_rgba(34,197,94,0.8)] cursor-help" />
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-[#1a1a1a] border border-green-500/30 rounded text-[10px] text-green-400 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                              Editor-in-Chief: Verified Accurate
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="group relative">
+                            <AlertTriangle size={18} className="text-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.8)] cursor-help" />
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-3 bg-[#1a1a1a] border border-amber-500/30 rounded text-[10px] text-amber-500 w-48 leading-tight opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                              <p className="font-bold mb-1">QC Warning:</p>
+                              {results.qc_feedback || "Potential discrepancy detected. Manual check advised."}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <button className="copy-btn transition-all duration-200" onClick={() => copyToClipboard(item.content, id)}>
+                        {copiedId === id ? (
+                          <span className="flex items-center gap-1 text-green-500 text-sm font-medium animate-in fade-in zoom-in duration-300">
+                            <CheckCircle size={16} /> Copied!
+                          </span>
+                        ) : (
+                          <Copy size={18} className="transition-all hover:scale-110" />
+                        )}
+                      </button>
+                    </div>
+                    <div className="bento-content markdown-rendered prose prose-invert max-w-none pt-4">
+                      <ReactMarkdown>
+                        {formatContent(item.content)}
+                      </ReactMarkdown>
+                    </div>
+                  </motion.div>
+                ))}
+              </section>
+              
+              {/* RESET ACTION */}
+              <div className="flex justify-center pb-8 border-t border-white/10 pt-8 mt-4">
+                <button 
+                  className="bg-transparent text-white border border-white/20 hover:bg-white hover:text-black rounded-full py-3 px-8 font-bold transition-all flex items-center justify-center cursor-pointer shadow-lg hover:shadow-[0_0_20px_rgba(255,255,255,0.4)]" 
+                  onClick={handleStartNew}
+                >
+                  Start New Factory Line
+                </button>
+              </div>
             </div>
           )}
         </section>
