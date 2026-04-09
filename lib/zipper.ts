@@ -4,8 +4,10 @@ import { GenerationResponse } from './ai';
 
 export const generateCampaignZip = async (
   url: string,
-  results: { blog_post: string; social_thread: string | string[]; email_teaser: string; qc_verified?: boolean; qc_feedback?: string }
+  results: { blog_post: string; social_thread: string | string[]; email_teaser: string; qc_verified?: boolean; qc_feedback?: string } | null
 ) => {
+  if (!results) return;
+
   const zip = new JSZip();
 
   // Extract domain for filename
@@ -22,12 +24,12 @@ export const generateCampaignZip = async (
 
   // Format social thread properly
   const socialContent = Array.isArray(results.social_thread) 
-    ? results.social_thread.join('\n\n---\n\n') 
+    ? results.social_thread.join('\n\n') 
     : results.social_thread;
 
-  zip.file("blog-post.md", results.blog_post || "");
-  zip.file("social-thread.txt", socialContent || "");
-  zip.file("email-teaser.txt", results.email_teaser || "");
+  zip.file("blog.md", results.blog_post || "");
+  zip.file("social.txt", socialContent || "");
+  zip.file("email.txt", results.email_teaser || "");
   zip.file("source-url.txt", `Source URL: ${url}\nCampaign Generated at: ${new Date().toLocaleString()}`);
 
   if (results.qc_verified === false) {

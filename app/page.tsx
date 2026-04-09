@@ -230,12 +230,13 @@ export default function Home() {
   };
 
   const handleStartNew = () => {
+    setResults(null);
+    setFactSheet('');
+    setAmbiguityFlags([]);
     setAppState('idle');
     setHeartbeatState('idle');
     setSourceInput('');
-    setFactSheet('');
-    setResults(null);
-    setAmbiguityFlags([]);
+    setActivityLog([]);
     setIsHistoryOpen(false);
   };
 
@@ -365,61 +366,38 @@ export default function Home() {
         </section>
 
       {/* VERIFICATION GATE & DASHBOARD */}
-      {(appState === 'verifying' || appState === 'generating' || appState === 'finished') && (
-        <section className={`w-full max-w-[1400px] mx-auto px-6 fade-in ${appState === 'finished' ? 'flex flex-col lg:grid lg:grid-cols-[40%_60%] gap-8 items-start' : 'max-w-4xl'}`}>
-          <div className={`gate-container fade-in ${appState === 'finished' ? 'lg:sticky lg:top-8 w-full' : 'w-full'}`}>
+      {appState === 'verifying' && (
+        <section className="w-full max-w-4xl mx-auto px-6 fade-in">
+          <div className="gate-container fade-in w-full">
             <div className="gate-panel glass relative overflow-hidden">
-              <div 
-                className={`bento-header ${appState === 'finished' ? 'cursor-pointer lg:cursor-auto' : ''}`} 
-                onClick={() => appState === 'finished' && setIsFactSheetOpen(!isFactSheetOpen)}
-              >
+              <div className="bento-header">
                 <h3 className="gate-title flex items-center gap-2"><FileText size={18} /> Fact-Sheet Review</h3>
                 <div className="flex items-center gap-2">
-                  {appState === 'verifying' && (
-                    <button 
-                      className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all"
-                      onClick={(e) => { e.stopPropagation(); setIsEditing(!isEditing); }}
-                    >
-                      {isEditing ? 'Save & Preview' : 'Edit Facts'}
-                    </button>
-                  )}
-                  {appState === 'finished' && (
-                    <span className="lg:hidden text-white/50 bg-white/5 hover:bg-white/10 p-1 rounded transition-colors">
-                      {isFactSheetOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                    </span>
-                  )}
+                  <button 
+                    className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                    onClick={(e) => { e.stopPropagation(); setIsEditing(!isEditing); }}
+                  >
+                    {isEditing ? 'Save & Preview' : 'Edit Facts'}
+                  </button>
                 </div>
               </div>
               
-              <AnimatePresence initial={false}>
-                {(!isFactSheetOpen && appState === 'finished') ? null : (
-                    <motion.div 
-                      key="fact-sheet-content"
-                      initial={appState === 'finished' ? { height: 0, opacity: 0 } : false} 
-                      animate={{ height: 'auto', opacity: 1 }} 
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="overflow-hidden"
-                    >
-                      {isEditing ? (
-                        <textarea 
-                          className="md-editor w-full h-[400px] mt-4 p-2 custom-scrollbar"
-                          value={factSheet}
-                          onChange={(e) => setFactSheet(e.target.value)}
-                          placeholder="Review and refine the extracted facts here..."
-                        />
-                      ) : (
-                        <div className={`md-editor mt-4 markdown-rendered overflow-y-auto custom-scrollbar ${appState === 'finished' ? 'max-h-[60vh] pr-2' : 'h-[400px]'}`}>
-                          <ReactMarkdown>{factSheet}</ReactMarkdown>
-                        </div>
-                      )}
-                    </motion.div>
-                )}
-              </AnimatePresence>
+              {isEditing ? (
+                <textarea 
+                  className="md-editor w-full h-[400px] mt-4 p-2 custom-scrollbar"
+                  value={factSheet}
+                  onChange={(e) => setFactSheet(e.target.value)}
+                  placeholder="Review and refine the extracted facts here..."
+                />
+              ) : (
+                <div className="md-editor mt-4 markdown-rendered overflow-y-auto custom-scrollbar h-[400px]">
+                  <ReactMarkdown>{factSheet}</ReactMarkdown>
+                </div>
+              )}
             </div>
             
             {/* Ambiguity Flags */}
-            <div className={`glass gate-panel warnings mt-4 ${appState === 'finished' ? 'opacity-70 grayscale-[0.3]' : ''}`}>
+            <div className="glass gate-panel warnings mt-4">
               <h2 className="gate-title" style={{ color: 'var(--warning-color)' }}><AlertTriangle size={20}/> Ambiguity Flags</h2>
               <ul className="warnings-list">
                 {ambiguityFlags.length === 0 ? (
@@ -433,20 +411,25 @@ export default function Home() {
             </div>
             
             {/* ACTION ROW - This is the "Confirmation" step between review and final output */}
-            {appState === 'verifying' && (
-              <div className="action-row" style={{ marginTop: '2rem' }}>
-                <button 
-                  className="bg-white text-black border-[3px] border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] rounded-full py-4 px-12 font-bold transition-all flex items-center justify-center gap-2 cursor-pointer" 
-                  onClick={handleGenerate}
-                >
-                  <Zap size={20}/> Confirm & Generate
-                </button>
-              </div>
-            )}
+            <div className="action-row" style={{ marginTop: '2rem' }}>
+              <button 
+                className="bg-white text-black border-[3px] border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] rounded-full py-4 px-12 font-bold transition-all flex items-center justify-center gap-2 cursor-pointer" 
+                onClick={handleGenerate}
+              >
+                <Zap size={20}/> Confirm & Generate
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* GENERATION / RESULTS VIEW */}
+      {(appState === 'generating' || appState === 'finished') && (
+        <section className="w-full max-w-5xl mx-auto px-6 fade-in flex flex-col gap-8 pb-32">
 
             {/* LIVE ACTIVITY FEED */}
             {appState === 'generating' && (
-              <div className="w-full mt-6 glass gate-panel overflow-hidden relative shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+              <div className="w-full glass gate-panel overflow-hidden relative shadow-[0_10px_30px_rgba(0,0,0,0.5)] fade-in">
                 <div className="absolute top-0 left-0 w-full h-1 bg-[#1a1a1a]">
                    <div className="h-full bg-gradient-to-r from-transparent via-[#FFDE59] to-transparent w-full opacity-70 animate-[pulse_1s_ease-in-out_infinite]" />
                 </div>
@@ -470,9 +453,8 @@ export default function Home() {
                 </div>
               </div>
             )}
-          </div>
 
-          {/* OUTPUT GALLERY (Right Column when lg) */}
+          {/* OUTPUT GALLERY (Full Width) */}
           {appState === 'finished' && results && (
             <div className="w-full flex-1">
               <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-6">
@@ -541,8 +523,8 @@ export default function Home() {
                 ))}
               </section>
               
-              {/* RESET ACTION */}
-              <div className="flex justify-center pb-8 border-t border-white/10 pt-8 mt-4">
+              {/* GENERATION VIEW RESET ACTION */}
+              <div className="flex justify-center pb-8 pt-8 mt-4">
                 <button 
                   className="bg-transparent text-white border border-white/20 hover:bg-white hover:text-black rounded-full py-3 px-8 font-bold transition-all flex items-center justify-center cursor-pointer shadow-lg hover:shadow-[0_0_20px_rgba(255,255,255,0.4)]" 
                   onClick={handleStartNew}
