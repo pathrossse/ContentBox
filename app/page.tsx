@@ -7,6 +7,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { generateCampaignZip } from '../lib/zipper';
 
 type GUIState = 'idle' | 'analyzing' | 'verifying' | 'generating' | 'finished';
+type HeartbeatState = 'idle' | 'analyzing' | 'drafting' | 'qc' | 'complete' | 'error';
+
+const heartbeatConfig: Record<HeartbeatState, { icon: string, text: string, color: string, pulse: string }> = {
+  idle: { icon: '🤖', text: 'Agents: Standby', color: 'bg-gray-500', pulse: 'shadow-[0_0_8px_rgba(107,114,128,0.6)]' },
+  analyzing: { icon: '🔍', text: 'Analyst: Extracting', color: 'bg-[#FFDE59]', pulse: 'animate-pulse shadow-[0_0_8px_rgba(255,222,89,0.8)]' },
+  drafting: { icon: '✍️', text: 'Copywriter: Drafting', color: 'bg-blue-500', pulse: 'animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.8)]' },
+  qc: { icon: '🛡️', text: 'Editor: Verifying', color: 'bg-green-400', pulse: 'animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.8)]' },
+  complete: { icon: '✅', text: 'Campaign Ready', color: 'bg-green-500', pulse: 'shadow-[0_0_8px_rgba(34,197,94,0.6)]' },
+  error: { icon: '⚠️', text: 'System: Error', color: 'bg-red-500', pulse: 'animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]' }
+};
 
 interface GenerationData {
   blog_post: string;
@@ -29,6 +39,7 @@ interface Session {
 
 export default function Home() {
   const [appState, setAppState] = useState<GUIState>('idle');
+  const [heartbeatState, setHeartbeatState] = useState<HeartbeatState>('idle');
   const [sourceInput, setSourceInput] = useState('');
   const [factSheet, setFactSheet] = useState('');
   const [previewMode, setPreviewMode] = useState(false);
@@ -143,6 +154,7 @@ export default function Home() {
     }
 
     setAppState('analyzing');
+    setHeartbeatState('analyzing');
     try {
       const res = await fetch('/api/analyze', {
         method: 'POST',
@@ -156,15 +168,18 @@ export default function Home() {
       setFactSheet(data.fact_sheet);
       setAmbiguityFlags(data.ambiguity_flags || []);
       setAppState('verifying');
+      setHeartbeatState('idle');
     } catch (err: any) {
       alert(err.message);
       setAppState('idle');
+      setHeartbeatState('error');
     }
   };
 
   // STEP 2: Confirm & Generate Final Content
   const handleGenerate = async () => {
     setAppState('generating');
+    setHeartbeatState('drafting');
     setActivityLog([{message: "Copywriter is drafting base assets...", time: 0}]);
     
     const startTime = Date.now();
@@ -173,7 +188,10 @@ export default function Home() {
     }, 100);
 
     const timeouts = [
-      setTimeout(() => setActivityLog(prev => [...prev, {message: "Parallel QC initiated by Editor-in-Chief...", time: Number(((Date.now() - startTime) / 1000).toFixed(1))}]), 2500),
+      setTimeout(() => {
+        setActivityLog(prev => [...prev, {message: "Parallel QC initiated by Editor-in-Chief...", time: Number(((Date.now() - startTime) / 1000).toFixed(1))}]);
+        setHeartbeatState('qc');
+      }, 2500),
       setTimeout(() => setActivityLog(prev => [...prev, {message: "Checking for hallucinations against Fact-Sheet...", time: Number(((Date.now() - startTime) / 1000).toFixed(1))}]), 4500),
       setTimeout(() => setActivityLog(prev => [...prev, {message: "Tone audit in progress...", time: Number(((Date.now() - startTime) / 1000).toFixed(1))}]), 6500)
     ];
@@ -190,10 +208,12 @@ export default function Home() {
       
       setResults(data);
       setAppState('finished');
+      setHeartbeatState('complete');
       saveToHistory({ results: data, timestamp: new Date().toISOString() });
     } catch (err: any) {
       alert(err.message);
       setAppState('verifying');
+      setHeartbeatState('error');
     } finally {
       clearInterval(timerId);
       timeouts.forEach(clearTimeout);
@@ -211,6 +231,7 @@ export default function Home() {
 
   const handleStartNew = () => {
     setAppState('idle');
+    setHeartbeatState('idle');
     setSourceInput('');
     setFactSheet('');
     setResults(null);
@@ -279,9 +300,21 @@ export default function Home() {
           >
             <History size={14} /> History
           </button>
-          <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full text-xs font-semibold text-white/50 tracking-widest uppercase">
-            <div className="status-dot w-2 h-2 bg-green-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
-            System Status: Online
+          <div className="hidden md:flex items-center h-10 w-52 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold text-white/50 tracking-widest uppercase overflow-hidden justify-center relative shadow-inner">
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.div
+                key={heartbeatState}
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -20, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="flex items-center gap-2 absolute whitespace-nowrap"
+              >
+                <div className={`status-dot w-2 h-2 rounded-full ${heartbeatConfig[heartbeatState].color} ${heartbeatConfig[heartbeatState].pulse}`}></div>
+                <span className="text-[14px] leading-none">{heartbeatConfig[heartbeatState].icon}</span>
+                <span className="text-white/80">{heartbeatConfig[heartbeatState].text}</span>
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
       </header>
