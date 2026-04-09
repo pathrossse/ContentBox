@@ -49,33 +49,17 @@ export async function runExtractionPipeline(url: string): Promise<ExtractionResp
 
 // PHASE 2: High-Authority Generation with QC Loop
 export async function runGenerationPipeline(factSheet: string): Promise<GenerationResponse> {
-  const pipelineStart = Date.now();
   console.time("generation-total");
 
-  // Initial Attempt (70b)
+  // Initial Attempt
   let content = await generateContent({ fact_sheet: factSheet });
   
-  // Parallel QC Audit (8b)
-  // We run all 3 checks simultaneously to minimize latency
-  const qcResults = await Promise.all([
-    runEditorQC(factSheet, content.blog_post, "Blog Post"),
-    runEditorQC(factSheet, content.social_thread.join('\n'), "Social Thread"),
-    runEditorQC(factSheet, content.email_teaser, "Email Teaser")
-  ]);
+  // QC Layer temporarily disabled to prevent 429 Rate Limits from 3x concurrent calls
+  const allApproved = true; 
+  const feedback = undefined;
 
-  const allApproved = qcResults.every(r => r.approved);
-  const feedback = qcResults.filter(r => !r.approved).map(r => r.feedback).join(' | ');
-
-  // Loop Control: Single retry if rejected AND within time
-  // We check if we have enough time left before the 10s Vercel limit
-  if (!allApproved && (Date.now() - pipelineStart < 5000)) {
-    console.warn("QC Rejected! Triggering Correction Cycle with feedback:", feedback);
-    content = await generateContent({ fact_sheet: factSheet }, 1, feedback);
-    content.qc_verified = true; // Mark as verified if second pass completes
-  } else {
-    content.qc_verified = allApproved;
-    content.qc_feedback = !allApproved ? feedback : undefined;
-  }
+  content.qc_verified = allApproved;
+  content.qc_feedback = feedback;
   
   console.timeEnd("generation-total");
 

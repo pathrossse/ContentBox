@@ -13,28 +13,33 @@ export async function generateContent(insights: any, retryCount = 0, correctionN
 
   const model = retryCount > 0 ? "llama-3.1-8b-instant" : "llama-3.3-70b-versatile";
 
-  // Sequential chunked generation to avoid bursting Groq's instantaneous 6000 TPM limit
   let blogVal: any = "Generation failed";
   let socialVal: any = ["Generation failed"];
   let emailVal: any = "Generation failed";
 
+  const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
   try {
-    const b = await generateChunk(endpoint, GROQ_API_KEY, model, 'blog', insights, correctionNotes, retryCount);
+    const b = await generateChunk(endpoint, GROQ_API_KEY, model, 'blog', insights, retryCount);
     if (b) blogVal = b;
   } catch (e) {
     console.warn("Blog generation chunk failed.");
   }
 
+  await sleep(1000); // Strict 1s gap to dodge burst rate threshold
+
   try {
-    const s = await generateChunk(endpoint, GROQ_API_KEY, model, 'social', insights, correctionNotes, retryCount);
+    const s = await generateChunk(endpoint, GROQ_API_KEY, model, 'social', insights, retryCount);
     if (s && Array.isArray(s)) socialVal = s;
     else if (s) socialVal = [String(s)];
   } catch (e) {
     console.warn("Social generation chunk failed.");
   }
 
+  await sleep(1000); // Strict 1s gap 
+
   try {
-    const em = await generateChunk(endpoint, GROQ_API_KEY, model, 'email', insights, correctionNotes, retryCount);
+    const em = await generateChunk(endpoint, GROQ_API_KEY, model, 'email', insights, retryCount);
     if (em) emailVal = String(em);
   } catch (e) {
     console.warn("Email generation chunk failed.");
@@ -50,45 +55,32 @@ export async function generateContent(insights: any, retryCount = 0, correctionN
   };
 }
 
-async function generateChunk(endpoint: string, apiKey: string | undefined, model: string, type: 'blog' | 'social' | 'email', insights: any, correctionNotes?: string, retryCount = 0): Promise<any> {
+async function generateChunk(endpoint: string, apiKey: string | undefined, model: string, type: 'blog' | 'social' | 'email', insights: any, retryCount = 0): Promise<any> {
   const configs = {
     blog: { 
-      max_tokens: 2000, 
+      max_tokens: 1500, 
       extract: (r: any) => r.blog_post,
-      prompt: `Output strict JSON with ONE field:
-      - blog_post: A deep, long-form SEO blog post in Markdown format. IMPORTANT: Use ONLY Markdown (##, ###, etc.) and NO HTML tags.`
+      prompt: `Output JSON { "blog_post": "deep dive in Markdown" }`
     },
     social: { 
-      max_tokens: 1500, 
+      max_tokens: 800, 
       extract: (r: any) => r.social_thread,
-      prompt: `Output strict JSON with ONE field:
-      - social_thread: An array of 5-10 virality-focused tweets. Angle 1: Hook/Problem. Middle: Deep Value. End: Result/Call-to-Action. Each string MUST be under 200 characters.`
+      prompt: `Output JSON { "social_thread": ["tweet 1", "tweet 2"] } max 5 tweets.`
     },
     email: { 
-      max_tokens: 1500, 
+      max_tokens: 800, 
       extract: (r: any) => r.email_teaser,
-      prompt: `Output strict JSON with ONE field:
-      - email_teaser: A CTR-focused teaser (50-150 words). Format: 1 sentence hook, followed by 3 bullet points of value, then a CTA. Include a "subject" field inside this object or as part of the text.`
+      prompt: `Output JSON { "email_teaser": "1 hook, 3 bullets, 1 CTA" }`
     }
   };
 
   const config = configs[type];
-
-  const systemInstructions = `You are an Expert Content Marketer with a persuasive and engaging tone. Generate formatted, high-quality content from the provided JSON insights. 
-  ${correctionNotes ? `CRITICAL CORRECTIONS TO IMPLEMENT: ${correctionNotes}` : ""}
-  STRICT RULE: Strictly follow the user-edited facts provided below. Ignore the initial scraped data if it contradicts this updated sheet. The provided insights are your SOLE source of truth.
-
-  ${config.prompt}`;
+  const systemInstructions = `You are a Content Marketer. Use insights for facts. Ignore external facts. ${config.prompt}`;
   
-  const prompt = `
-    DENSE INSIGHTS:
-    ${JSON.stringify(insights, null, 2)}
-    
-    TASK: Generate high-authority ${type} content based solely on the insights above.
-  `;
+  const prompt = `INSIGHTS:\n${JSON.stringify(insights)}\n\nGenerate ${type} content strictly matching JSON format.`;
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s Safety Cutoff
+  const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
 
   try {
     const response = await fetch(endpoint, {
@@ -113,33 +105,30 @@ async function generateChunk(endpoint: string, apiKey: string | undefined, model
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      if (retryCount < 1 && (response.status === 429 || response.status === 503)) {
-        console.warn(`Groq limit hit for ${type}. Retrying with 8b...`);
-        return generateChunk(endpoint, apiKey, "llama-3.1-8b-instant", type, insights, correctionNotes, retryCount + 1);
+      if (retryCount < 2 && (response.status === 429 || response.status === 503)) {
+        console.warn(`Groq limit for ${type}. Backing off...`);
+        const delay = Math.pow(2, retryCount) * 1500; // 1.5s, 3s
+        await new Promise(r => setTimeout(r, delay));
+        return generateChunk(endpoint, apiKey, "llama-3.1-8b-instant", type, insights, retryCount + 1);
       }
-      const errorText = await response.text();
-      throw new Error(`Groq API Error: ${response.status} - ${errorText}`);
+      throw new Error(`Groq Error: ${response.status}`);
     }
 
     const data = await response.json();
     const resultText = data.choices?.[0]?.message?.content;
-    
-    if (!resultText) throw new Error("Empty response from Groq Generator");
+    if (!resultText) throw new Error("Empty response");
 
-    const parsed = JSON.parse(resultText);
-    return config.extract(parsed);
+    return config.extract(JSON.parse(resultText));
 
   } catch (error: any) {
     clearTimeout(timeoutId);
+    if (error.name === 'AbortError') throw new Error("Timeout");
     
-    if (error.name === 'AbortError') {
-      console.warn(`Generation timed out at 8s for ${type}.`);
-      throw new Error("Timeout");
-    }
-
-    if (retryCount < 1) {
-       console.warn(`Generation Error for ${type}, attempting 8b fallback:`, error.message);
-       return generateChunk(endpoint, apiKey, "llama-3.1-8b-instant", type, insights, correctionNotes, retryCount + 1);
+    if (retryCount < 2) {
+       console.warn(`Generation Error for ${type}, retrying:`, error.message);
+       const delay = Math.pow(2, retryCount) * 1500;
+       await new Promise(r => setTimeout(r, delay));
+       return generateChunk(endpoint, apiKey, "llama-3.1-8b-instant", type, insights, retryCount + 1);
     }
     throw error;
   }
